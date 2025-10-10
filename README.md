@@ -1,63 +1,60 @@
 # 🦙 Ollama Context Window Variant Generator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bash](https://img.shields.io/badge/Language-Bash-green.svg)](https://www.gnu.org/software/bash/)
-[![Ollama](https://img.shields.io/badge/Requires-Ollama-blue.svg)](https://ollama.ai/)
+[![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
+[![Ollama](https://img.shields.io/badge/Ollama-Compatible-blue.svg)](https://ollama.ai/)
 
-> **Automatically generate Ollama model variants with different context window sizes for optimal performance across various use cases.**
+A robust bash script that automatically generates Ollama model variants with different context window sizes. Perfect for testing and optimizing model performance across various context lengths.
 
-## 📖 Description
+## ✨ Features
 
-The Ollama Context Window Variant Generator (`ollama-mama`) is a powerful bash script that scans your existing Ollama models and automatically creates variants with different context window sizes. This allows you to optimize model performance for different scenarios - from quick responses with smaller contexts to comprehensive analysis with larger contexts.
-
-### ✨ Key Features
-
-- 🔍 **Smart Model Detection** - Automatically scans and identifies base models vs. derived models
-- 📏 **Progressive Context Scaling** - Creates variants starting from 8K, doubling up to the model's maximum context
-- 🛡️ **Robust Error Handling** - Comprehensive edge case handling and graceful error recovery
-- 📁 **Organized Output** - Generates clean Modelfiles in a structured directory
-- 🔧 **Flexible Configuration** - Customizable output directory and starting context size
-- 🏷️ **Namespace Support** - Handles complex model names with slashes (e.g., `namespace/model`)
-- 🔄 **Version Compatibility** - Works with both newer and older Ollama versions
-- 💬 **Interactive Mode** - User-friendly prompts for overwrite decisions
+- 🔄 **Automatic Variant Generation**: Creates model variants with context sizes from 8K up to the model's maximum capacity
+- 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
+- 🔧 **Backward Compatibility**: Works with older Ollama versions by parsing plain text output
+- 📁 **Smart File Management**: Sanitizes model names for valid filenames
+- ⚡ **Batch Processing**: Processes all available models in one run
+- 🎯 **Selective Overwrite**: Choose whether to overwrite existing models/files
+- 📊 **Progress Tracking**: Clear progress indicators and status messages
+- 🚫 **Error Prevention**: Prevents silent exits with comprehensive error handling
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Ollama** installed and running ([Installation Guide](https://ollama.ai/))
-- **Bash** shell (Linux/macOS/WSL)
+- [Ollama](https://ollama.ai/) installed and running
+- Bash shell (Linux/macOS/WSL)
 - At least one Ollama model downloaded
 
 ### Installation
 
-1. **Download the script:**
-   ```bash
-   curl -O https://raw.githubusercontent.com/yourusername/ollama-mama/main/ollama-mama
-   ```
+1. Clone this repository:
+```bash
+git clone https://github.com/lfontanez/tool-ollama-mama.git
+cd tool-ollama-mama
+```
 
-2. **Make it executable:**
-   ```bash
-   chmod +x ollama-mama
-   ```
+2. Make the script executable:
+```bash
+chmod +x ollama-mama
+```
 
-3. **Run the script:**
-   ```bash
-   ./ollama-mama
-   ```
+3. Run the script:
+```bash
+./ollama-mama
+```
 
-## 📋 Usage
+## 📖 Usage
 
 ### Basic Usage
 
-Simply run the script and follow the interactive prompts:
+Simply run the script and follow the prompts:
 
 ```bash
 ./ollama-mama
 ```
 
 The script will:
-1. Scan your existing Ollama models
+1. Scan all available Ollama models
 2. Ask if you want to overwrite existing variants
 3. Generate context window variants for each base model
 4. Create Modelfiles and register new models with Ollama
@@ -81,121 +78,111 @@ INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
 
 ## ⚙️ Configuration
 
-### Environment Variables
+### Default Settings
 
-You can customize the script behavior by modifying these variables at the top of the script:
+- **Output Directory**: `$HOME/dev/ollama/Modelfiles`
+- **Starting Context**: 8192 tokens (8K)
+- **Context Progression**: Doubles each iteration (8K → 16K → 32K → ...)
+
+### Customization
+
+Edit the script to modify these variables:
 
 ```bash
-# Default output directory for Modelfiles
-OUTPUT_DIR="$HOME/dev/ollama/Modelfiles"
+# Change output directory
+OUTPUT_DIR="$HOME/my-custom-path/Modelfiles"
 
-# Starting context window size (in tokens)
-START_CONTEXT=8192
+# Change starting context size
+START_CONTEXT=4096  # Start at 4K instead of 8K
 ```
 
-### Generated Model Naming Convention
+## 📁 Generated Files
 
-Models are named following this pattern:
+### Modelfile Structure
+
+Each generated Modelfile follows this format:
+
+```dockerfile
+# Modelfile for llama2:7b-16k
+# Generated by script on Thu Oct 10 14:30:25 EDT 2025
+
+FROM llama2:7b
+
+# Set the new context window size
+PARAMETER num_ctx 16384
 ```
-{original-model}:{parameters}-{context}k
-```
+
+### File Naming Convention
+
+- **Modelfiles**: `my-{model-name}-{params}-{context}.modelfile`
+- **Ollama Tags**: `{original-name}:{params}-{context}`
 
 Examples:
-- `llama2:7b-8k` (8,192 tokens)
-- `llama2:7b-16k` (16,384 tokens)
-- `codellama:13b-32k` (32,768 tokens)
-
-### Modelfile Naming Convention
-
-Modelfiles are saved with this pattern:
-```
-my-{model-name}-{parameters}-{context}k.modelfile
-```
-
-## 🎯 Use Cases
-
-### 📝 Content Creation
-- **8K context**: Quick responses, code snippets
-- **16K context**: Medium articles, documentation
-- **32K+ context**: Long-form content, comprehensive analysis
-
-### 💻 Development
-- **8K context**: Code completion, quick debugging
-- **16K context**: Code review, refactoring suggestions
-- **32K+ context**: Architecture analysis, large codebase understanding
-
-### 📊 Data Analysis
-- **8K context**: Quick data insights
-- **16K context**: Report generation
-- **32K+ context**: Comprehensive data analysis, large dataset processing
+- `my-llama2-7b-8k.modelfile` → `llama2:7b-8k`
+- `my-microsoft-DialoGPT-medium-16k.modelfile` → `microsoft/DialoGPT:medium-16k`
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
-#### "No Ollama models found"
+**Q: Script says "No Ollama models found"**
 ```bash
-# Check if Ollama is running
+# Check if Ollama is running and has models
 ollama list
-
-# If empty, download a model first
-ollama pull llama2:7b
 ```
 
-#### "Could not determine parameter size or max context"
-This usually happens with older Ollama versions or custom models. The script will skip these models and continue with others.
-
-#### Permission denied errors
+**Q: Permission denied when creating files**
 ```bash
-# Ensure the script is executable
-chmod +x ollama-mama
-
-# Check if output directory is writable
-ls -la ~/dev/ollama/
+# Ensure output directory is writable
+mkdir -p "$HOME/dev/ollama/Modelfiles"
+chmod 755 "$HOME/dev/ollama/Modelfiles"
 ```
 
-#### Model creation fails
-- Ensure you have enough disk space
-- Check that Ollama service is running: `ollama serve`
-- Verify the base model exists: `ollama list`
+**Q: Model creation fails**
+```bash
+# Check Ollama service status
+ollama serve  # Run in another terminal if needed
+```
+
+**Q: Git errors during execution**
+```bash
+# Initialize git repository if needed
+git init
+git add .
+git commit -m "Initial commit"
+```
 
 ### Debug Mode
 
-For verbose output, you can modify the script to add debug information:
+For verbose output, run with bash debug mode:
 ```bash
-# Add this line after the shebang for debug mode
-set -x
+bash -x ./ollama-mama
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
+Contributions are welcome! Here's how you can help:
 
-### Reporting Issues
-- Use the [GitHub Issues](https://github.com/yourusername/ollama-mama/issues) page
-- Include your Ollama version: `ollama --version`
-- Provide the full error output
-- Mention your operating system
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
 
-### Feature Requests
-- Check existing issues first
-- Clearly describe the use case
-- Provide examples if possible
+### Development Guidelines
 
-### Pull Requests
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request with a clear description
+- Follow existing code style and conventions
+- Add comments for complex logic
+- Test with multiple Ollama versions
+- Update documentation for new features
 
-### Development Setup
-```bash
-git clone https://github.com/yourusername/ollama-mama.git
-cd ollama-mama
-chmod +x ollama-mama
-./ollama-mama
-```
+## 📋 Roadmap
+
+- [ ] Support for custom context size ranges
+- [ ] JSON configuration file support
+- [ ] Model performance benchmarking
+- [ ] Integration with Ollama model registry
+- [ ] GUI version for non-technical users
 
 ## 📄 License
 
@@ -203,23 +190,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Ollama](https://ollama.ai/) team for creating an amazing local LLM platform
-- The open-source community for inspiration and feedback
-- Contributors who help improve this tool
+- [Ollama](https://ollama.ai/) team for the amazing local LLM platform
+- Community contributors and testers
+- Everyone who provided feedback and bug reports
 
 ## 📞 Support
 
-- 📖 **Documentation**: Check this README and inline script comments
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yourusername/ollama-mama/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/ollama-mama/discussions)
-- 📧 **Contact**: [your.email@example.com](mailto:your.email@example.com)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/lfontanez/tool-ollama-mama/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/lfontanez/tool-ollama-mama/discussions)
+- 📧 **Contact**: [Your Email](mailto:your.email@example.com)
 
 ---
 
 <div align="center">
-
-**Made with ❤️ for the Ollama community**
-
-[⭐ Star this repo](https://github.com/yourusername/ollama-mama) • [🐛 Report Bug](https://github.com/yourusername/ollama-mama/issues) • [✨ Request Feature](https://github.com/yourusername/ollama-mama/issues)
-
+  <strong>Made with ❤️ for the Ollama community</strong>
 </div>
