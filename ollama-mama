@@ -1,14 +1,18 @@
 #!/bin/bash
 
 # ==============================================================================
-# Ollama Context Window Variant Generator (Final Version)
+# Ollama Context Window Variant Generator
 #
 # Description:
-# This final version handles all known edge cases:
+# This script manages Ollama model variants with different context window sizes.
 # - Works with older Ollama versions by parsing plain text.
 # - Prevents silent exits if model details can't be parsed.
 # - Sanitizes model names containing slashes (e.g., "namespace/model")
 #   to create valid filenames.
+#
+# Commands:
+# - ctx --create: Create model variants with different context sizes
+# - ctx --delete: Delete generated model variants and their Modelfiles
 #
 # ==============================================================================
 
@@ -19,81 +23,95 @@ set -o pipefail # The return value of a pipeline is the status of the last comma
 OUTPUT_DIR="$HOME/dev/ollama/Modelfiles"
 START_CONTEXT=8192
 
-# --- Script Logic ---
+# --- Functions ---
 
-mkdir -p "$OUTPUT_DIR"
-echo "INFO: Modelfiles will be saved in '$OUTPUT_DIR'"
+show_usage() {
+    echo "Usage: $0 ctx [--create|--delete]"
+    echo ""
+    echo "Commands:"
+    echo "  ctx --create    Create model variants with different context window sizes"
+    echo "  ctx --delete    Delete generated model variants and their Modelfiles"
+    echo ""
+    echo "Examples:"
+    echo "  $0 ctx --create"
+    echo "  $0 ctx --delete"
+}
 
-OVERWRITE_ALL=false
-read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    OVERWRITE_ALL=true
-    echo "INFO: Overwrite enabled. Existing files will be replaced."
-else
-    echo "INFO: Overwrite disabled. Existing models/files will be skipped."
-fi
+create_models() {
 
-ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
+    mkdir -p "$OUTPUT_DIR"
+    echo "INFO: Modelfiles will be saved in '$OUTPUT_DIR'"
 
-if [ -z "$ALL_MODEL_TAGS" ]; then
-    echo "ERROR: No Ollama models found. Exiting."
-    exit 1
-fi
-
-echo "--- Starting Model Scan ---"
-
-for model_tag in $ALL_MODEL_TAGS; do
-    echo "---"
-    echo "Processing Tag: $model_tag"
-
-    modelfile_content=$(ollama show --modelfile "$model_tag")
-
-    if echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
-        from_model=$(echo "$modelfile_content" | grep '^FROM' | awk '{print $2}')
-        echo "INFO: Skipping '$model_tag' as it is derived from '$from_model'."
-        continue
-    fi
-    echo "INFO: '$model_tag' identified as a base model."
-
-    model_info_text=$(ollama show "$model_tag")
-
-    param_size=$(echo "$model_info_text" | grep 'parameters' | awk '{print $2}' || true)
-    max_ctx=$(echo "$model_info_text" | grep 'context length' | awk '{print $3}' || true)
-
-    if [ -z "$param_size" ] || [ -z "$max_ctx" ]; then
-        echo "WARNING: Could not determine parameter size or max context for '$model_tag'. Skipping."
-        continue
+    OVERWRITE_ALL=false
+    read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        OVERWRITE_ALL=true
+        echo "INFO: Overwrite enabled. Existing files will be replaced."
+    else
+        echo "INFO: Overwrite disabled. Existing models/files will be skipped."
     fi
 
-    params_sanitized=$(echo "$param_size" | tr '[:upper:]' '[:lower:]' | sed -E 's/\..*b/b/')
-    
-    # --- MODIFICATION START: Sanitize model name for filename ---
-    # Get the base name, which might contain a slash (e.g., "namespace/model")
-    model_base_name_raw=$(echo "$model_tag" | cut -d':' -f1)
-    # Sanitize the name for use in filenames by replacing any '/' with a '-'
-    model_base_name=$(echo "$model_base_name_raw" | tr '/' '-')
-    # --- MODIFICATION END ---
+    ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
 
-    echo "INFO: Found Model: $model_base_name_raw | Parameters: $param_size | Max Context: ${max_ctx} tokens"
+    if [ -z "$ALL_MODEL_TAGS" ]; then
+        echo "ERROR: No Ollama models found. Exiting."
+        exit 1
+    fi
 
-    current_ctx=$START_CONTEXT
-    while [ "$current_ctx" -le "$max_ctx" ]; do
-        context_k=$((current_ctx / 1024))
-        # Use the raw (un-sanitized) name for the new Ollama tag, but the sanitized one for the filename
-        new_tag_name="${model_base_name_raw}:${params_sanitized}-${context_k}k"
-        modelfile_name="my-${model_base_name}-${params_sanitized}-${context_k}k.modelfile"
-        modelfile_path="$OUTPUT_DIR/$modelfile_name"
+    echo "--- Starting Model Scan ---"
 
-        echo " -> Preparing variant: $new_tag_name"
+    for model_tag in $ALL_MODEL_TAGS; do
+        echo "---"
+        echo "Processing Tag: $model_tag"
 
-        if [ "$OVERWRITE_ALL" = false ] && (ollama list | grep -q "^${new_tag_name}\s" || [ -f "$modelfile_path" ]); then
-            echo "    SKIPPED: Variant '$new_tag_name' or Modelfile '$modelfile_name' already exists."
-            current_ctx=$((current_ctx * 2))
+        modelfile_content=$(ollama show --modelfile "$model_tag")
+
+        if echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
+            from_model=$(echo "$modelfile_content" | grep '^FROM' | awk '{print $2}')
+            echo "INFO: Skipping '$model_tag' as it is derived from '$from_model'."
+            continue
+        fi
+        echo "INFO: '$model_tag' identified as a base model."
+
+        model_info_text=$(ollama show "$model_tag")
+
+        param_size=$(echo "$model_info_text" | grep 'parameters' | awk '{print $2}' || true)
+        max_ctx=$(echo "$model_info_text" | grep 'context length' | awk '{print $3}' || true)
+
+        if [ -z "$param_size" ] || [ -z "$max_ctx" ]; then
+            echo "WARNING: Could not determine parameter size or max context for '$model_tag'. Skipping."
             continue
         fi
 
-        cat > "$modelfile_path" << EOM
+        params_sanitized=$(echo "$param_size" | tr '[:upper:]' '[:lower:]' | sed -E 's/\..*b/b/')
+        
+        # --- MODIFICATION START: Sanitize model name for filename ---
+        # Get the base name, which might contain a slash (e.g., "namespace/model")
+        model_base_name_raw=$(echo "$model_tag" | cut -d':' -f1)
+        # Sanitize the name for use in filenames by replacing any '/' with a '-'
+        model_base_name=$(echo "$model_base_name_raw" | tr '/' '-')
+        # --- MODIFICATION END ---
+
+        echo "INFO: Found Model: $model_base_name_raw | Parameters: $param_size | Max Context: ${max_ctx} tokens"
+
+        current_ctx=$START_CONTEXT
+        while [ "$current_ctx" -le "$max_ctx" ]; do
+            context_k=$((current_ctx / 1024))
+            # Use the raw (un-sanitized) name for the new Ollama tag, but the sanitized one for the filename
+            new_tag_name="${model_base_name_raw}:${params_sanitized}-${context_k}k"
+            modelfile_name="my-${model_base_name}-${params_sanitized}-${context_k}k.modelfile"
+            modelfile_path="$OUTPUT_DIR/$modelfile_name"
+
+            echo " -> Preparing variant: $new_tag_name"
+
+            if [ "$OVERWRITE_ALL" = false ] && (ollama list | grep -q "^${new_tag_name}\s" || [ -f "$modelfile_path" ]); then
+                echo "    SKIPPED: Variant '$new_tag_name' or Modelfile '$modelfile_name' already exists."
+                current_ctx=$((current_ctx * 2))
+                continue
+            fi
+
+            cat > "$modelfile_path" << EOM
 # Modelfile for ${new_tag_name}
 # Generated by script on $(date)
 
@@ -103,17 +121,140 @@ FROM ${model_tag}
 PARAMETER num_ctx ${current_ctx}
 EOM
 
-        echo "    CREATED Modelfile: $modelfile_path"
-        echo "    CREATING Ollama model '$new_tag_name'..."
-        if ollama create "$new_tag_name" -f "$modelfile_path"; then
-            echo "    SUCCESS: Created '$new_tag_name'."
-        else
-            echo "    ERROR: Failed to create '$new_tag_name'. Check logs above."
-        fi
+            echo "    CREATED Modelfile: $modelfile_path"
+            echo "    CREATING Ollama model '$new_tag_name'..."
+            if ollama create "$new_tag_name" -f "$modelfile_path"; then
+                echo "    SUCCESS: Created '$new_tag_name'."
+            else
+                echo "    ERROR: Failed to create '$new_tag_name'. Check logs above."
+            fi
 
-        current_ctx=$((current_ctx * 2))
+            current_ctx=$((current_ctx * 2))
+        done
     done
-done
 
-echo "---"
-echo "Script finished."
+    echo "---"
+    echo "Script finished."
+}
+
+delete_models() {
+    echo "--- Starting Model Deletion ---"
+    
+    ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
+
+    if [ -z "$ALL_MODEL_TAGS" ]; then
+        echo "ERROR: No Ollama models found. Exiting."
+        exit 1
+    fi
+
+    # Find generated models (those matching the pattern {model}:{params}-{context}k)
+    GENERATED_MODELS=()
+    for model_tag in $ALL_MODEL_TAGS; do
+        # Check if model matches the generated pattern: contains colon and ends with -NNk
+        if [[ "$model_tag" =~ :[^:]*-[0-9]+k$ ]]; then
+            GENERATED_MODELS+=("$model_tag")
+        fi
+    done
+
+    if [ ${#GENERATED_MODELS[@]} -eq 0 ]; then
+        echo "INFO: No generated model variants found to delete."
+        return 0
+    fi
+
+    echo "Found ${#GENERATED_MODELS[@]} generated model variant(s):"
+    for model in "${GENERATED_MODELS[@]}"; do
+        echo "  - $model"
+    done
+    echo ""
+
+    # Find corresponding Modelfiles
+    MODELFILES_TO_DELETE=()
+    if [ -d "$OUTPUT_DIR" ]; then
+        for modelfile in "$OUTPUT_DIR"/my-*-*k.modelfile; do
+            if [ -f "$modelfile" ]; then
+                MODELFILES_TO_DELETE+=("$modelfile")
+            fi
+        done
+    fi
+
+    if [ ${#MODELFILES_TO_DELETE[@]} -gt 0 ]; then
+        echo "Found ${#MODELFILES_TO_DELETE[@]} corresponding Modelfile(s):"
+        for modelfile in "${MODELFILES_TO_DELETE[@]}"; do
+            echo "  - $(basename "$modelfile")"
+        done
+        echo ""
+    fi
+
+    # Confirmation prompt
+    echo "This will delete:"
+    echo "  - ${#GENERATED_MODELS[@]} Ollama model variant(s)"
+    echo "  - ${#MODELFILES_TO_DELETE[@]} Modelfile(s)"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "INFO: Deletion cancelled."
+        return 0
+    fi
+
+    # Delete Ollama models
+    echo "--- Deleting Ollama Models ---"
+    for model in "${GENERATED_MODELS[@]}"; do
+        echo "Deleting model: $model"
+        if ollama rm "$model"; then
+            echo "  SUCCESS: Deleted '$model'"
+        else
+            echo "  ERROR: Failed to delete '$model'"
+        fi
+    done
+
+    # Delete Modelfiles
+    if [ ${#MODELFILES_TO_DELETE[@]} -gt 0 ]; then
+        echo "--- Deleting Modelfiles ---"
+        for modelfile in "${MODELFILES_TO_DELETE[@]}"; do
+            echo "Deleting file: $(basename "$modelfile")"
+            if rm -f "$modelfile"; then
+                echo "  SUCCESS: Deleted '$(basename "$modelfile")'"
+            else
+                echo "  ERROR: Failed to delete '$(basename "$modelfile")'"
+            fi
+        done
+    fi
+
+    echo "---"
+    echo "Deletion completed."
+}
+
+# --- Main Script Logic ---
+
+# Check arguments
+if [ $# -eq 0 ]; then
+    show_usage
+    exit 1
+fi
+
+if [ "$1" != "ctx" ]; then
+    echo "ERROR: First argument must be 'ctx'"
+    show_usage
+    exit 1
+fi
+
+if [ $# -ne 2 ]; then
+    echo "ERROR: Expected exactly 2 arguments"
+    show_usage
+    exit 1
+fi
+
+case "$2" in
+    --create)
+        create_models
+        ;;
+    --delete)
+        delete_models
+        ;;
+    *)
+        echo "ERROR: Unknown command '$2'"
+        show_usage
+        exit 1
+        ;;
+esac
