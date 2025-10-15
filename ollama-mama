@@ -560,9 +560,23 @@ list_models() {
     # Sort by max context (descending) - using sort with numeric comparison
     IFS=$'\n' SORTED_DATA=($(printf '%s\n' "${MODEL_DATA[@]}" | sort -t'|' -k1,1nr))
     
+    # Calculate dynamic width for Model Name column
+    max_model_name_length=10  # Minimum width
+    for data in "${SORTED_DATA[@]}"; do
+        if [[ "$data" != *"|"* ]]; then
+            continue  # Skip malformed entries
+        fi
+        
+        IFS='|' read -r max_ctx model_tag param_size context_display <<< "$data"
+        
+        if [ -n "$model_tag" ] && [ ${#model_tag} -gt $max_model_name_length ]; then
+            max_model_name_length=${#model_tag}
+        fi
+    done
+    
     # Print table header
-    printf "%-4s | %-30s | %-10s | %-11s | %-13s\n" "Rank" "Model Name" "Parameters" "Max Context" "Context Mem"
-    printf "%-4s-|-%-30s-|-%-10s-|-%-11s-|-%-13s\n" "----" "------------------------------" "----------" "-----------" "-------------"
+    printf "%-4s | %-${max_model_name_length}s | %-10s | %-11s | %-13s\n" "Rank" "Model Name" "Parameters" "Max Context" "Context Mem"
+    printf "%-4s-|-%-${max_model_name_length}s-|-%-10s-|-%-11s-|-%-13s\n" "----" "$(printf '%*s' $max_model_name_length '' | tr ' ' '-')" "----------" "-----------" "-------------"
     
     # Print sorted results
     rank=1
@@ -586,7 +600,7 @@ list_models() {
             formatted_ctx="Unknown"
         fi
         
-        printf "%-4d | %-30s | %-10s | %-11s | %-13s\n" \
+        printf "%-4d | %-${max_model_name_length}s | %-10s | %-11s | %-13s\n" \
             "$rank" "$model_tag" "$param_size" "$formatted_ctx" "$context_display"
         
         rank=$((rank + 1))
