@@ -582,6 +582,7 @@ list_models() {
     
     # Print sorted results
     rank=1
+    displayed_count=0
     for data in "${SORTED_DATA[@]}"; do
         # Validate data format before processing
         if [[ "$data" != *"|"* ]]; then
@@ -606,10 +607,11 @@ list_models() {
             "$rank" "$model_tag" "$param_size" "$formatted_ctx" "$context_display"
         
         rank=$((rank + 1))
+        displayed_count=$((displayed_count + 1))
     done
     
     echo ""
-    echo "Found ${#SORTED_DATA[@]} base model(s)."
+    echo "Found $displayed_count base model(s)."
     if [ -n "$filter" ]; then
         echo "Use './ollama-mama ctx --list' to see all base models."
     fi
