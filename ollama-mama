@@ -26,14 +26,17 @@ START_CONTEXT=8192
 # --- Functions ---
 
 show_usage() {
-    echo "Usage: $0 ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]"
+    echo "Usage: $0 [ctx|model] [options]"
     echo ""
-    echo "Commands:"
+    echo "Context Commands:"
     echo "  ctx --create              Create model variants with different context window sizes"
     echo "  ctx --delete              Delete generated model variants and their Modelfiles"
     echo "  ctx --delete-base <model> Delete a specific base model and all its variants"
     echo "  ctx --create-base <model> Create variants for a specific base model only"
     echo "  ctx --list [filter]       List base models with context window information"
+    echo ""
+    echo "Model Commands:"
+    echo "  model --autorename        Auto-rename models with problematic naming patterns"
     echo ""
     echo "Examples:"
     echo "  $0 ctx --create"
@@ -42,8 +45,7 @@ show_usage() {
     echo "  $0 ctx --create-base fredrezones55/unsloth-deepseek-r1:8b"
     echo "  $0 ctx --list"
     echo "  $0 ctx --list llama"
-    echo "  $0 ctx --list"
-    echo "  $0 ctx --list llama"
+    echo "  $0 model --autorename"
 }
 
 create_variants_for_model() {
@@ -617,6 +619,191 @@ list_models() {
     fi
 }
 
+autorename_models() {
+    echo "--- Starting Model Auto-Rename ---"
+    echo "Scanning for models with problematic naming patterns..."
+    echo ""
+    
+    ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
+
+    if [ -z "$ALL_MODEL_TAGS" ]; then
+        echo "ERROR: No Ollama models found. Exiting."
+        exit 1
+    fi
+
+    # Array to store transformation data
+    declare -a TRANSFORMATIONS=()
+    
+    for model_tag in $ALL_MODEL_TAGS; do
+        # Skip empty or malformed model tags
+        if [ -z "$model_tag" ] || [[ "$model_tag" =~ ^[[:space:]]*$ ]]; then
+            continue
+        fi
+        
+        # Skip already generated variants (those matching the pattern {model}:{params}-{context}k)
+        if [[ "$model_tag" =~ :[^:]*-[0-9]+k$ ]]; then
+            continue
+        fi
+        
+        # Skip derived models (check if it has FROM statement)
+        modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
+        if echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
+            continue
+        fi
+        
+        # Check for problematic patterns
+        new_name=""
+        
+        # Pattern 1: Size in model name before colon (e.g., "model-6.7B-instruct:Q4_K_M" -> "model-instruct-Q4_K_M:6.7B")
+        if [[ "$model_tag" =~ ^(.+)-([0-9]+\.?[0-9]*[BM])-(.+):(.+)$ ]]; then
+            prefix="${BASH_REMATCH[1]}"
+            size="${BASH_REMATCH[2]}"
+            middle="${BASH_REMATCH[3]}"
+            tag="${BASH_REMATCH[4]}"
+            new_name="${prefix}-${middle}-${tag}:${size}"
+        
+        # Pattern 2: Size in model name before colon without middle part (e.g., "model-30B:Q8_0" -> "model-Q8_0:30B")
+        elif [[ "$model_tag" =~ ^(.+)-([0-9]+\.?[0-9]*[BM]):(.+)$ ]]; then
+            prefix="${BASH_REMATCH[1]}"
+            size="${BASH_REMATCH[2]}"
+            tag="${BASH_REMATCH[3]}"
+            new_name="${prefix}-${tag}:${size}"
+        fi
+        
+        # If we found a transformation, add it to the array
+        if [ -n "$new_name" ] && [ "$new_name" != "$model_tag" ]; then
+            TRANSFORMATIONS+=("${model_tag}|${new_name}")
+        fi
+    done
+    
+    # Check if any problematic models were found
+    if [ ${#TRANSFORMATIONS[@]} -eq 0 ]; then
+        echo "No models with problematic naming patterns found."
+        echo "All models appear to follow the recommended naming convention."
+        return 0
+    fi
+    
+    echo "Found ${#TRANSFORMATIONS[@]} model(s) with problematic naming patterns:"
+    echo ""
+    echo "Proposed Transformations:"
+    echo "========================="
+    
+    for transformation in "${TRANSFORMATIONS[@]}"; do
+        IFS='|' read -r original_name new_name <<< "$transformation"
+        echo "  $original_name"
+        echo "    -> $new_name"
+        echo ""
+    done
+    
+    echo "This will:"
+    echo "  - Create ${#TRANSFORMATIONS[@]} new model(s) with corrected names"
+    echo "  - Generate corresponding Modelfiles"
+    echo ""
+    
+    read -p "Do you want to proceed with the transformations? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "INFO: Auto-rename cancelled."
+        return 0
+    fi
+    
+    # Ask about removing original models
+    REMOVE_ORIGINALS=false
+    read -p "Do you want to remove the original models after successful rename? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        REMOVE_ORIGINALS=true
+        echo "INFO: Original models will be removed after successful transformation."
+    else
+        echo "INFO: Original models will be kept."
+    fi
+    
+    mkdir -p "$OUTPUT_DIR"
+    echo "INFO: Modelfiles will be saved in '$OUTPUT_DIR'"
+    echo ""
+    
+    # Process transformations
+    echo "--- Processing Transformations ---"
+    
+    declare -a SUCCESSFUL_TRANSFORMATIONS=()
+    declare -a FAILED_TRANSFORMATIONS=()
+    
+    for transformation in "${TRANSFORMATIONS[@]}"; do
+        IFS='|' read -r original_name new_name <<< "$transformation"
+        
+        echo "Processing: $original_name -> $new_name"
+        
+        # Sanitize new name for filename
+        new_name_sanitized=$(echo "$new_name" | tr '/' '-' | tr ':' '-')
+        modelfile_name="autorename-${new_name_sanitized}.modelfile"
+        modelfile_path="$OUTPUT_DIR/$modelfile_name"
+        
+        # Create Modelfile
+        cat > "$modelfile_path" << EOM
+# Modelfile for ${new_name}
+# Auto-renamed from ${original_name}
+# Generated by script on $(date)
+
+FROM ${original_name}
+EOM
+        
+        echo "  CREATED Modelfile: $modelfile_path"
+        echo "  CREATING Ollama model '$new_name'..."
+        
+        if ollama create "$new_name" -f "$modelfile_path"; then
+            echo "  SUCCESS: Created '$new_name'"
+            SUCCESSFUL_TRANSFORMATIONS+=("${original_name}|${new_name}")
+        else
+            echo "  ERROR: Failed to create '$new_name'"
+            FAILED_TRANSFORMATIONS+=("${original_name}|${new_name}")
+            # Remove the failed Modelfile
+            rm -f "$modelfile_path"
+        fi
+        echo ""
+    done
+    
+    # Remove original models if requested and transformations were successful
+    if [ "$REMOVE_ORIGINALS" = true ] && [ ${#SUCCESSFUL_TRANSFORMATIONS[@]} -gt 0 ]; then
+        echo "--- Removing Original Models ---"
+        for transformation in "${SUCCESSFUL_TRANSFORMATIONS[@]}"; do
+            IFS='|' read -r original_name new_name <<< "$transformation"
+            echo "Removing original model: $original_name"
+            if ollama rm "$original_name"; then
+                echo "  SUCCESS: Removed '$original_name'"
+            else
+                echo "  ERROR: Failed to remove '$original_name'"
+            fi
+        done
+        echo ""
+    fi
+    
+    # Summary
+    echo "--- Auto-Rename Summary ---"
+    echo "Successfully transformed: ${#SUCCESSFUL_TRANSFORMATIONS[@]} model(s)"
+    echo "Failed transformations: ${#FAILED_TRANSFORMATIONS[@]}"
+    echo ""
+    
+    if [ ${#SUCCESSFUL_TRANSFORMATIONS[@]} -gt 0 ]; then
+        echo "Successfully renamed models:"
+        for transformation in "${SUCCESSFUL_TRANSFORMATIONS[@]}"; do
+            IFS='|' read -r original_name new_name <<< "$transformation"
+            echo "  $original_name -> $new_name"
+        done
+        echo ""
+    fi
+    
+    if [ ${#FAILED_TRANSFORMATIONS[@]} -gt 0 ]; then
+        echo "Failed transformations:"
+        for transformation in "${FAILED_TRANSFORMATIONS[@]}"; do
+            IFS='|' read -r original_name new_name <<< "$transformation"
+            echo "  $original_name -> $new_name"
+        done
+        echo ""
+    fi
+    
+    echo "Auto-rename completed."
+}
+
 # --- Main Script Logic ---
 
 # Check arguments
@@ -625,13 +812,15 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-if [ "$1" != "ctx" ]; then
-    echo "ERROR: First argument must be 'ctx'"
+if [ "$1" != "ctx" ] && [ "$1" != "model" ]; then
+    echo "ERROR: First argument must be 'ctx' or 'model'"
     show_usage
     exit 1
 fi
 
-case "$2" in
+# Handle ctx commands
+if [ "$1" = "ctx" ]; then
+    case "$2" in
     --create)
         if [ $# -ne 2 ]; then
             echo "ERROR: --create expects exactly 2 arguments"
@@ -676,8 +865,28 @@ case "$2" in
         fi
         ;;
     *)
-        echo "ERROR: Unknown command '$2'"
+        echo "ERROR: Unknown ctx command '$2'"
         show_usage
         exit 1
         ;;
-esac
+    esac
+fi
+
+# Handle model commands
+if [ "$1" = "model" ]; then
+    case "$2" in
+    --autorename)
+        if [ $# -ne 2 ]; then
+            echo "ERROR: --autorename expects exactly 2 arguments"
+            show_usage
+            exit 1
+        fi
+        autorename_models
+        ;;
+    *)
+        echo "ERROR: Unknown model command '$2'"
+        show_usage
+        exit 1
+        ;;
+    esac
+fi
