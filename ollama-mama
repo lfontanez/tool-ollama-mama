@@ -477,6 +477,11 @@ list_models() {
             continue
         fi
         
+        # Skip generated variant models (those matching the pattern {model}:{params}-{context}k)
+        if [[ "$model_tag" =~ :[^:]*-[0-9]+k$ ]]; then
+            continue
+        fi
+        
         # Check if it's a base model (not derived from another)
         modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
         
