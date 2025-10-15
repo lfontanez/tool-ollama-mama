@@ -481,25 +481,6 @@ Contributions are welcome! Here's how you can help:
 - Test with multiple Ollama versions
 - Update documentation for new features
 
-## 📋 Roadmap
-
-### Context Window Features
-- [ ] Support for custom context size ranges
-- [ ] Model performance benchmarking across context sizes
-- [ ] Context window optimization recommendations
-
-### Model Management Features  
-- [ ] Model dependency tracking and visualization
-- [ ] Bulk model operations (download, update, remove)
-- [ ] Model metadata management and tagging
-- [ ] Model storage optimization and deduplication
-
-### System Integration
-- [ ] JSON configuration file support
-- [ ] Integration with Ollama model registry
-- [ ] REST API for programmatic access
-- [ ] GUI version for non-technical users
-- [ ] Docker container support
 
 ## 📄 License
 
