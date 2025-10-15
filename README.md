@@ -9,6 +9,7 @@ A robust bash script that automatically generates Ollama model variants with dif
 ## ✨ Features
 
 - 🔄 **Automatic Variant Generation**: Creates model variants with context sizes from 8K up to the model's maximum capacity
+- 🗑️ **Cleanup Management**: Delete generated model variants and their Modelfiles with confirmation
 - 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
 - 🔧 **Backward Compatibility**: Works with older Ollama versions by parsing plain text output
 - 📁 **Smart File Management**: Sanitizes model names for valid filenames
@@ -40,28 +41,52 @@ chmod +x ollama-mama
 
 3. Run the script:
 ```bash
-./ollama-mama
+./ollama-mama ctx --create
 ```
 
 ## 📖 Usage
 
-### Basic Usage
+### Command Structure
 
-Simply run the script and follow the prompts:
+The script now uses a command-based structure:
 
 ```bash
-./ollama-mama
+./ollama-mama ctx [--create|--delete]
 ```
 
-The script will:
+### Create Model Variants
+
+Generate context window variants for all base models:
+
+```bash
+./ollama-mama ctx --create
+```
+
+### Delete Model Variants
+
+Remove all generated model variants and their Modelfiles:
+
+```bash
+./ollama-mama ctx --delete
+```
+
+**Create Command** (`ctx --create`) will:
 1. Scan all available Ollama models
 2. Ask if you want to overwrite existing variants
 3. Generate context window variants for each base model
 4. Create Modelfiles and register new models with Ollama
 
+**Delete Command** (`ctx --delete`) will:
+1. Identify all generated model variants (pattern: `{model}:{params}-{context}k`)
+2. List corresponding Modelfiles to be removed
+3. Ask for confirmation before deletion
+4. Remove both Ollama models and Modelfiles
+
 ### Example Output
 
+**Create Command:**
 ```
+$ ./ollama-mama ctx --create
 INFO: Modelfiles will be saved in '/home/user/dev/ollama/Modelfiles'
 Do you want to overwrite existing Modelfiles and recreate models? (y/N) n
 INFO: Overwrite disabled. Existing models/files will be skipped.
@@ -74,6 +99,31 @@ INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
     CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-llama2-7b-8k.modelfile
     CREATING Ollama model 'llama2:7b-8k'...
     SUCCESS: Created 'llama2:7b-8k'.
+```
+
+**Delete Command:**
+```
+$ ./ollama-mama ctx --delete
+--- Starting Model Deletion ---
+Found 5 generated model variant(s):
+  - llama2:7b-8k
+  - llama2:7b-16k
+  - llama2:7b-32k
+  - qwen2.5:14b-8k
+  - qwen2.5:14b-16k
+
+Found 5 corresponding Modelfile(s):
+  - my-llama2-7b-8k.modelfile
+  - my-llama2-7b-16k.modelfile
+  - my-llama2-7b-32k.modelfile
+  - my-qwen2.5-14b-8k.modelfile
+  - my-qwen2.5-14b-16k.modelfile
+
+This will delete:
+  - 5 Ollama model variant(s)
+  - 5 Modelfile(s)
+
+Do you want to proceed? (y/N)
 ```
 
 ## ⚙️ Configuration
@@ -156,7 +206,16 @@ git commit -m "Initial commit"
 
 For verbose output, run with bash debug mode:
 ```bash
-bash -x ./ollama-mama
+bash -x ./ollama-mama ctx --create
+bash -x ./ollama-mama ctx --delete
+```
+
+### Usage Help
+
+Display available commands:
+```bash
+./ollama-mama
+# Shows: Usage: ./ollama-mama ctx [--create|--delete]
 ```
 
 ## 🤝 Contributing
