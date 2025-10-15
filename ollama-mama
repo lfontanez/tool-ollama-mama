@@ -303,20 +303,61 @@ create_base_model() {
         exit 1
     fi
 
+    # Extract model name part for comprehensive searching
+    model_name_part=$(echo "$base_model" | cut -d':' -f1)
+    
+    # Try to resolve the base model
+    RESOLVED_BASE_MODEL=""
     MODEL_EXISTS=false
+    
+    # First, check if the exact model exists
     for model_tag in $ALL_MODEL_TAGS; do
         if [ "$model_tag" = "$base_model" ]; then
             MODEL_EXISTS=true
+            RESOLVED_BASE_MODEL="$base_model"
             break
         fi
     done
+    
+    # If not found and it's a :latest alias, try to find the actual base model
+    if [ "$MODEL_EXISTS" = false ] && [[ "$base_model" =~ :latest$ ]]; then
+        echo "INFO: '$base_model' not found directly. Searching for actual base models of '$model_name_part'..."
+        
+        # Look for any base model with the same name part but different tag
+        for model_tag in $ALL_MODEL_TAGS; do
+            if [[ "$model_tag" =~ ^${model_name_part}: ]] && [[ ! "$model_tag" =~ -[0-9]+k$ ]]; then
+                # Check if it's actually a base model (not derived)
+                modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
+                if ! echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
+                    echo "INFO: Found actual base model '$model_tag' for alias '$base_model'"
+                    RESOLVED_BASE_MODEL="$model_tag"
+                    MODEL_EXISTS=true
+                    break
+                fi
+            fi
+        done
+    fi
 
     if [ "$MODEL_EXISTS" = false ]; then
         echo "ERROR: Model '$base_model' not found in Ollama."
-        echo "Available models:"
-        echo "$ALL_MODEL_TAGS" | sed 's/^/  - /'
+        if [[ "$base_model" =~ :latest$ ]]; then
+            echo "INFO: No base models found for '$model_name_part'."
+            echo "INFO: Available models with name '$model_name_part':"
+            for model_tag in $ALL_MODEL_TAGS; do
+                if [[ "$model_tag" =~ ^${model_name_part}: ]]; then
+                    echo "  - $model_tag"
+                fi
+            done
+        else
+            echo "Available models:"
+            echo "$ALL_MODEL_TAGS" | sed 's/^/  - /'
+        fi
         exit 1
     fi
+    
+    # Use the resolved model for further processing
+    base_model="$RESOLVED_BASE_MODEL"
+    echo "INFO: Using resolved base model: $base_model"
 
     # Check if it's a variant (ends with -NNk pattern)
     if [[ "$base_model" =~ -[0-9]+k$ ]]; then
