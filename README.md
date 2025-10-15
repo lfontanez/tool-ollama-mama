@@ -11,12 +11,13 @@ A robust bash script that automatically generates Ollama model variants with dif
 - 🔄 **Automatic Variant Generation**: Creates model variants with context sizes from 8K up to the model's maximum capacity
 - 🗑️ **Cleanup Management**: Delete generated model variants and their Modelfiles with confirmation
 - 🎯 **Selective Base Model Deletion**: Remove specific base models and all their generated variants
+- 📊 **Context Window Leaderboard**: List and rank base models by their maximum context window size with memory usage estimates
 - 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
 - 🔧 **Backward Compatibility**: Works with older Ollama versions by parsing plain text output
 - 📁 **Smart File Management**: Sanitizes model names for valid filenames
 - ⚡ **Batch Processing**: Processes all available models in one run
 - 🎯 **Selective Overwrite**: Choose whether to overwrite existing models/files
-- 📊 **Progress Tracking**: Clear progress indicators and status messages
+- 📊 **Progress Tracking**: Clear progress indicators and status messages with dynamic column formatting
 - 🚫 **Error Prevention**: Prevents silent exits with comprehensive error handling
 
 ## 🚀 Quick Start
@@ -52,7 +53,7 @@ chmod +x ollama-mama
 The script now uses a command-based structure:
 
 ```bash
-./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>]
+./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]
 ```
 
 ### Create Model Variants
@@ -91,6 +92,22 @@ Remove a specific base model and all its generated variants:
 ./ollama-mama ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b
 ```
 
+### List Base Models
+
+Display a context window leaderboard of all base models:
+
+```bash
+./ollama-mama ctx --list
+```
+
+Filter models by name:
+
+```bash
+./ollama-mama ctx --list llama
+./ollama-mama ctx --list qwen
+./ollama-mama ctx --list microsoft
+```
+
 **Create Command** (`ctx --create`) will:
 1. Scan all available Ollama models
 2. Ask if you want to overwrite existing variants
@@ -116,7 +133,52 @@ Remove a specific base model and all its generated variants:
 4. Remove the base model, all variants, and corresponding Modelfiles
 5. Perform proper cleanup of Ollama blobs and registry entries
 
+**List Command** (`ctx --list [filter]`) will:
+1. Scan all available Ollama models and identify base models
+2. Extract context window information and parameter sizes
+3. Calculate estimated memory usage for context storage
+4. Display models in a ranked table sorted by maximum context window (descending)
+5. Apply optional name filter to show only matching models
+6. Exclude generated variants and derived models from the listing
+
 ### Example Output
+
+**List Command:**
+```
+$ ./ollama-mama ctx --list
+OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
+================================================
+
+Rank | Model Name                              | Parameters | Max Context | Context Mem
+-----|----------------------------------------|------------|-------------|-------------
+1    | qwen2.5:72b                            | 72.7B      | 131,072     | ~256 MB
+2    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
+3    | qwen2.5:32b                            | 32.8B      | 131,072     | ~256 MB
+4    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
+5    | qwen2.5:14b                            | 14.8B      | 32,768      | ~64 MB
+6    | llama2:13b                             | 13.0B      | 4,096       | ~8 MB
+7    | llama2:7b                              | 6.74B      | 4,096       | ~8 MB
+
+Found 7 base model(s).
+```
+
+**List Command with Filter:**
+```
+$ ./ollama-mama ctx --list llama
+OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
+================================================
+Filter: Models containing 'llama'
+
+Rank | Model Name                              | Parameters | Max Context | Context Mem
+-----|----------------------------------------|------------|-------------|-------------
+1    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
+2    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
+3    | llama2:13b                             | 13.0B      | 4,096       | ~8 MB
+4    | llama2:7b                              | 6.74B      | 4,096       | ~8 MB
+
+Found 4 base model(s).
+Use './ollama-mama ctx --list' to see all base models.
+```
 
 **Create Command:**
 ```
