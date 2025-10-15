@@ -467,33 +467,39 @@ delete_base_model() {
         exit 1
     fi
 
-    # Try to resolve the base model to its actual name (in case it's an alias like :latest)
+    # Extract model name part for comprehensive variant searching
+    model_name_part=$(echo "$base_model" | cut -d':' -f1)
+    
+    # Try to resolve the base model and find all potential variants
     RESOLVED_BASE_MODEL=""
     BASE_MODEL_EXISTS=false
+    MODELS_TO_DELETE=()
+    VARIANT_MATCHES=()
     
     # First, check if the exact model exists
     for model_tag in $ALL_MODEL_TAGS; do
         if [ "$model_tag" = "$base_model" ]; then
             BASE_MODEL_EXISTS=true
             RESOLVED_BASE_MODEL="$base_model"
+            MODELS_TO_DELETE+=("$base_model")
             break
         fi
     done
     
-    # If not found and it's a :latest alias, try to find the actual model
+    # If not found and it's a :latest alias, try to find the actual base model
     if [ "$BASE_MODEL_EXISTS" = false ] && [[ "$base_model" =~ :latest$ ]]; then
-        model_name_part=$(echo "$base_model" | cut -d':' -f1)
-        echo "INFO: '$base_model' not found directly. Searching for actual model variants of '$model_name_part'..."
+        echo "INFO: '$base_model' not found directly. Searching for actual base models of '$model_name_part'..."
         
-        # Look for any model with the same name part but different tag
+        # Look for any base model with the same name part but different tag
         for model_tag in $ALL_MODEL_TAGS; do
             if [[ "$model_tag" =~ ^${model_name_part}: ]] && [[ ! "$model_tag" =~ -[0-9]+k$ ]]; then
-                # Found a potential base model, let's check if it's actually a base (not derived)
+                # Check if it's actually a base model (not derived)
                 modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
                 if ! echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
                     echo "INFO: Found actual base model '$model_tag' for alias '$base_model'"
                     RESOLVED_BASE_MODEL="$model_tag"
                     BASE_MODEL_EXISTS=true
+                    MODELS_TO_DELETE+=("$model_tag")
                     break
                 fi
             fi
@@ -505,31 +511,22 @@ delete_base_model() {
         RESOLVED_BASE_MODEL="$base_model"
     fi
 
-    # Find the base model and its variants using improved matching logic
-    MODELS_TO_DELETE=()
-    VARIANT_MATCHES=()
+    echo "INFO: Searching for variants of model family '$model_name_part'..."
     
-    # Add the base model if it exists
-    if [ "$BASE_MODEL_EXISTS" = true ]; then
-        MODELS_TO_DELETE+=("$RESOLVED_BASE_MODEL")
-        if [ "$RESOLVED_BASE_MODEL" != "$base_model" ]; then
-            echo "INFO: Will delete resolved base model '$RESOLVED_BASE_MODEL' (from alias '$base_model')"
-        fi
-    fi
-    
-    # Extract model name part for family matching
-    model_name_part=$(echo "$RESOLVED_BASE_MODEL" | cut -d':' -f1)
-    
-    echo "DEBUG: Looking for variants of model family '$model_name_part'..."
-    
-    # Look for variants using multiple strategies
+    # Comprehensive variant search using multiple strategies
     for model_tag in $ALL_MODEL_TAGS; do
-        # Skip the base model itself
+        # Skip the base model itself (already added if it exists)
         if [ "$model_tag" = "$base_model" ] || [ "$model_tag" = "$RESOLVED_BASE_MODEL" ]; then
             continue
         fi
         
-        # Strategy 1: Direct variant matching (model:tag-8k pattern)
+        # Skip if not a variant (doesn't end with -NNk)
+        if [[ ! "$model_tag" =~ -[0-9]+k$ ]]; then
+            continue
+        fi
+        
+        # Strategy 1: Direct variant matching (exact base model match)
+        # e.g., "llama3.1:8b-instruct-q4_K_M-16k" -> "llama3.1:8b-instruct-q4_K_M"
         if [[ "$model_tag" =~ ^(.+)-[0-9]+k$ ]]; then
             variant_base="${BASH_REMATCH[1]}"
             if [ "$variant_base" = "$RESOLVED_BASE_MODEL" ] || [ "$variant_base" = "$base_model" ]; then
@@ -539,25 +536,43 @@ delete_base_model() {
             fi
         fi
         
-        # Strategy 2: Model family matching (same model name, different tags, with -Nk suffix)
+        # Strategy 2: Model family matching (same model name, any tag with -Nk suffix)
+        # e.g., "llama3.1:8b-16k" could be variant of "llama3.1:8b" or "llama3.1:latest"
         if [[ "$model_tag" =~ ^${model_name_part}:(.+)-[0-9]+k$ ]]; then
-            variant_tag="${BASH_REMATCH[1]}"
-            # Check if this could be a variant of our resolved base model
-            potential_base="${model_name_part}:${variant_tag}"
+            variant_tag_part="${BASH_REMATCH[1]}"
+            potential_base="${model_name_part}:${variant_tag_part}"
             
-            # If our resolved base model matches this pattern, it's likely a variant
-            if [[ "$RESOLVED_BASE_MODEL" =~ ^${model_name_part}: ]]; then
+            # Check if this variant could belong to our target base model
+            # Case 1: Direct match with resolved base
+            if [ "$potential_base" = "$RESOLVED_BASE_MODEL" ] || [ "$potential_base" = "$base_model" ]; then
                 MODELS_TO_DELETE+=("$model_tag")
                 VARIANT_MATCHES+=("Family match: $model_tag -> $potential_base")
                 continue
             fi
+            
+            # Case 2: Handle :latest alias - if user specified model:latest, 
+            # match variants from any tag of that model
+            if [[ "$base_model" =~ :latest$ ]]; then
+                MODELS_TO_DELETE+=("$model_tag")
+                VARIANT_MATCHES+=("Latest alias match: $model_tag -> $base_model")
+                continue
+            fi
+            
+            # Case 3: If base model doesn't exist but we found variants,
+            # and the model name matches, include them
+            if [ "$BASE_MODEL_EXISTS" = false ]; then
+                MODELS_TO_DELETE+=("$model_tag")
+                VARIANT_MATCHES+=("Orphaned variant: $model_tag (base $potential_base not found)")
+                continue
+            fi
         fi
         
-        # Strategy 3: Handle cases where base model is an alias like :latest
-        # Look for variants that start with the same model name
-        if [[ "$base_model" =~ :latest$ ]] && [[ "$model_tag" =~ ^${model_name_part}:(.+)-[0-9]+k$ ]]; then
+        # Strategy 3: Fuzzy matching for edge cases
+        # If the variant starts with the same model name and we haven't found the base,
+        # it might be an orphaned variant
+        if [ "$BASE_MODEL_EXISTS" = false ] && [[ "$model_tag" =~ ^${model_name_part}: ]]; then
             MODELS_TO_DELETE+=("$model_tag")
-            VARIANT_MATCHES+=("Alias match: $model_tag -> $base_model")
+            VARIANT_MATCHES+=("Fuzzy match: $model_tag (potential orphaned variant)")
         fi
     done
     
@@ -574,59 +589,98 @@ delete_base_model() {
 
     # Show debug information about what was found
     if [ ${#VARIANT_MATCHES[@]} -gt 0 ]; then
-        echo "DEBUG: Variant matching results:"
+        echo "INFO: Variant matching results:"
         for match in "${VARIANT_MATCHES[@]}"; do
             echo "  $match"
         done
+        echo ""
     fi
 
+    # Handle different scenarios with appropriate messaging
     if [ "$BASE_MODEL_EXISTS" = false ]; then
-        echo "WARNING: Base model '$base_model' not found in Ollama."
         if [ ${#MODELS_TO_DELETE[@]} -eq 0 ]; then
-            echo "INFO: No variants found either. Nothing to delete."
+            echo "INFO: Base model '$base_model' not found and no variants detected."
+            echo "INFO: This could mean:"
+            echo "  - The model was never downloaded"
+            echo "  - The model name doesn't match any existing models"
+            echo "  - No variants were created by this script"
             return 0
         else
-            echo "INFO: Found ${#MODELS_TO_DELETE[@]} potential variant(s) to delete anyway."
+            echo "WARNING: Base model '$base_model' not found, but found ${#MODELS_TO_DELETE[@]} variant(s)."
+            echo "INFO: These appear to be orphaned variants that will be deleted."
         fi
+    else
+        echo "INFO: Found base model '$RESOLVED_BASE_MODEL' and ${#MODELS_TO_DELETE[@]} total model(s) to delete."
     fi
 
     if [ ${#MODELS_TO_DELETE[@]} -eq 0 ]; then
-        echo "INFO: No models found to delete for base model '$base_model'."
-        echo "INFO: This could mean:"
-        echo "  - The model has no variants created by this script"
-        echo "  - The model name doesn't match the expected pattern"
-        echo "  - The variants were created with a different base model name"
+        echo "INFO: No models found to delete."
         return 0
     fi
 
-    echo "Found ${#MODELS_TO_DELETE[@]} model(s) to delete:"
+    # Categorize models for clearer display
+    BASE_MODELS=()
+    VARIANT_MODELS=()
+    
     for model in "${MODELS_TO_DELETE[@]}"; do
-        if [ "$model" = "$base_model" ]; then
-            echo "  - $model (base model)"
+        if [[ "$model" =~ -[0-9]+k$ ]]; then
+            VARIANT_MODELS+=("$model")
         else
-            echo "  - $model (variant)"
+            BASE_MODELS+=("$model")
         fi
     done
+
+    echo "Found ${#MODELS_TO_DELETE[@]} model(s) to delete:"
+    
+    if [ ${#BASE_MODELS[@]} -gt 0 ]; then
+        echo "  Base model(s):"
+        for model in "${BASE_MODELS[@]}"; do
+            echo "    - $model"
+        done
+    fi
+    
+    if [ ${#VARIANT_MODELS[@]} -gt 0 ]; then
+        echo "  Variant model(s):"
+        for model in "${VARIANT_MODELS[@]}"; do
+            echo "    - $model"
+        done
+    fi
     echo ""
 
-    # Find corresponding Modelfiles for variants
+    # Find corresponding Modelfiles with improved matching
     MODELFILES_TO_DELETE=()
     if [ -d "$OUTPUT_DIR" ]; then
-        # Sanitize base model name for filename matching
+        # Try multiple filename patterns to catch all possible Modelfiles
+        
+        # Pattern 1: Based on the original base model name
         model_base_name_raw=$(echo "$base_model" | cut -d':' -f1)
         model_base_name=$(echo "$model_base_name_raw" | tr '/' '-')
         
-        # Extract parameters from base model tag if present
-        if [[ "$base_model" =~ : ]]; then
-            model_params=$(echo "$base_model" | cut -d':' -f2)
+        # Pattern 2: Based on resolved base model name (if different)
+        if [ "$RESOLVED_BASE_MODEL" != "$base_model" ]; then
+            resolved_base_name_raw=$(echo "$RESOLVED_BASE_MODEL" | cut -d':' -f1)
+            resolved_base_name=$(echo "$resolved_base_name_raw" | tr '/' '-')
         else
-            model_params="*"
+            resolved_base_name="$model_base_name"
         fi
         
-        for modelfile in "$OUTPUT_DIR"/my-${model_base_name}-${model_params}-*k.modelfile; do
-            if [ -f "$modelfile" ]; then
-                MODELFILES_TO_DELETE+=("$modelfile")
-            fi
+        # Search for Modelfiles using both patterns
+        for pattern in "$model_base_name" "$resolved_base_name"; do
+            for modelfile in "$OUTPUT_DIR"/my-${pattern}-*-*k.modelfile; do
+                if [ -f "$modelfile" ]; then
+                    # Check if already in array to avoid duplicates
+                    duplicate=false
+                    for existing in "${MODELFILES_TO_DELETE[@]}"; do
+                        if [ "$existing" = "$modelfile" ]; then
+                            duplicate=true
+                            break
+                        fi
+                    done
+                    if [ "$duplicate" = false ]; then
+                        MODELFILES_TO_DELETE+=("$modelfile")
+                    fi
+                fi
+            done
         done
     fi
 
@@ -638,11 +692,24 @@ delete_base_model() {
         echo ""
     fi
 
-    # Confirmation prompt
+    # Enhanced confirmation prompt with clearer information
     echo "This will delete:"
-    echo "  - ${#MODELS_TO_DELETE[@]} Ollama model(s) (including base model and variants)"
+    if [ ${#BASE_MODELS[@]} -gt 0 ]; then
+        echo "  - ${#BASE_MODELS[@]} base model(s)"
+    fi
+    if [ ${#VARIANT_MODELS[@]} -gt 0 ]; then
+        echo "  - ${#VARIANT_MODELS[@]} variant model(s)"
+    fi
     echo "  - ${#MODELFILES_TO_DELETE[@]} Modelfile(s)"
     echo ""
+    
+    if [ "$BASE_MODEL_EXISTS" = false ] && [ ${#VARIANT_MODELS[@]} -gt 0 ]; then
+        echo "⚠️  WARNING: The base model '$base_model' was not found, but variants exist."
+        echo "   This suggests the base model was already deleted or renamed."
+        echo "   Proceeding will delete the orphaned variants."
+        echo ""
+    fi
+    
     read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
