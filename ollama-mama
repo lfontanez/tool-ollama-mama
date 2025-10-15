@@ -26,19 +26,22 @@ START_CONTEXT=8192
 # --- Functions ---
 
 show_usage() {
-    echo "Usage: $0 ctx [--create|--delete|--delete-base <model>|--create-base <model>]"
+    echo "Usage: $0 ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]"
     echo ""
     echo "Commands:"
     echo "  ctx --create              Create model variants with different context window sizes"
     echo "  ctx --delete              Delete generated model variants and their Modelfiles"
     echo "  ctx --delete-base <model> Delete a specific base model and all its variants"
     echo "  ctx --create-base <model> Create variants for a specific base model only"
+    echo "  ctx --list [filter]       List base models with context window information"
     echo ""
     echo "Examples:"
     echo "  $0 ctx --create"
     echo "  $0 ctx --delete"
     echo "  $0 ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b"
     echo "  $0 ctx --create-base fredrezones55/unsloth-deepseek-r1:8b"
+    echo "  $0 ctx --list"
+    echo "  $0 ctx --list llama"
 }
 
 create_variants_for_model() {
@@ -442,6 +445,116 @@ delete_base_model() {
     echo "Base model deletion completed."
 }
 
+list_models() {
+    local filter="$1"
+    
+    echo "OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD"
+    echo "================================================"
+    
+    if [ -n "$filter" ]; then
+        echo "Filter: Models containing '$filter'"
+        echo ""
+    fi
+    
+    ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
+
+    if [ -z "$ALL_MODEL_TAGS" ]; then
+        echo "ERROR: No Ollama models found. Exiting."
+        exit 1
+    fi
+
+    # Array to store model information for sorting
+    declare -a MODEL_DATA=()
+    
+    for model_tag in $ALL_MODEL_TAGS; do
+        # Apply filter if provided
+        if [ -n "$filter" ] && [[ "$model_tag" != *"$filter"* ]]; then
+            continue
+        fi
+        
+        # Check if it's a base model (not derived from another)
+        modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
+        
+        if echo "$modelfile_content" | grep -q '^FROM .*:.*'; then
+            continue  # Skip derived models
+        fi
+        
+        # Get model information
+        model_info_text=$(ollama show "$model_tag" 2>/dev/null || echo "")
+        
+        # Extract parameter size and max context with fallbacks
+        param_size=$(echo "$model_info_text" | grep 'parameters' | awk '{print $2}' || echo "Unknown")
+        max_ctx=$(echo "$model_info_text" | grep 'context length' | awk '{print $3}' || echo "0")
+        
+        # Handle parsing errors gracefully
+        if [ -z "$param_size" ] || [ "$param_size" = "" ]; then
+            param_size="Unknown"
+        fi
+        
+        if [ -z "$max_ctx" ] || [ "$max_ctx" = "" ] || ! [[ "$max_ctx" =~ ^[0-9]+$ ]]; then
+            max_ctx="0"
+        fi
+        
+        # Calculate estimated memory usage for context (rough approximation)
+        # Assuming ~4 bytes per token for context storage
+        if [ "$max_ctx" -gt 0 ]; then
+            context_mb=$((max_ctx * 4 / 1024 / 1024))
+            if [ $context_mb -eq 0 ]; then
+                context_mb=1
+            fi
+            context_display="~${context_mb} MB"
+        else
+            context_display="Unknown"
+        fi
+        
+        # Store model data: "max_ctx|model_tag|param_size|context_display"
+        MODEL_DATA+=("${max_ctx}|${model_tag}|${param_size}|${context_display}")
+    done
+    
+    # Check if any base models were found
+    if [ ${#MODEL_DATA[@]} -eq 0 ]; then
+        if [ -n "$filter" ]; then
+            echo "No base models found matching filter '$filter'."
+        else
+            echo "No base models found."
+        fi
+        echo ""
+        echo "Note: Only base models are shown (derived models with 'FROM' statements are excluded)."
+        return 0
+    fi
+    
+    # Sort by max context (descending) - using sort with numeric comparison
+    IFS=$'\n' SORTED_DATA=($(printf '%s\n' "${MODEL_DATA[@]}" | sort -t'|' -k1,1nr))
+    
+    # Print table header
+    printf "%-4s | %-30s | %-10s | %-11s | %-13s\n" "Rank" "Model Name" "Parameters" "Max Context" "Context (MB)"
+    printf "%-4s-|-%-30s-|-%-10s-|-%-11s-|-%-13s\n" "----" "------------------------------" "----------" "-----------" "-------------"
+    
+    # Print sorted results
+    rank=1
+    for data in "${SORTED_DATA[@]}"; do
+        IFS='|' read -r max_ctx model_tag param_size context_display <<< "$data"
+        
+        # Format max context with commas for readability
+        if [ "$max_ctx" -gt 0 ]; then
+            formatted_ctx=$(printf "%'d" "$max_ctx" 2>/dev/null || echo "$max_ctx")
+        else
+            formatted_ctx="Unknown"
+        fi
+        
+        printf "%-4d | %-30s | %-10s | %-11s | %-13s\n" \
+            "$rank" "$model_tag" "$param_size" "$formatted_ctx" "$context_display"
+        
+        rank=$((rank + 1))
+    done
+    
+    echo ""
+    echo "Found ${#SORTED_DATA[@]} base model(s)."
+    if [ -n "$filter" ]; then
+        echo "Use './ollama-mama ctx --list' to see all base models."
+    fi
+}
+
 # --- Main Script Logic ---
 
 # Check arguments
@@ -488,6 +601,17 @@ case "$2" in
             exit 1
         fi
         create_base_model "$3"
+        ;;
+    --list)
+        if [ $# -eq 2 ]; then
+            list_models ""
+        elif [ $# -eq 3 ]; then
+            list_models "$3"
+        else
+            echo "ERROR: --list expects 2 or 3 arguments"
+            show_usage
+            exit 1
+        fi
         ;;
     *)
         echo "ERROR: Unknown command '$2'"
