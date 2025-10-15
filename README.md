@@ -52,7 +52,7 @@ chmod +x ollama-mama
 The script now uses a command-based structure:
 
 ```bash
-./ollama-mama ctx [--create|--delete|--delete-base <model>]
+./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>]
 ```
 
 ### Create Model Variants
@@ -61,6 +61,16 @@ Generate context window variants for all base models:
 
 ```bash
 ./ollama-mama ctx --create
+```
+
+### Create Variants for Specific Model
+
+Generate context window variants for a single base model:
+
+```bash
+./ollama-mama ctx --create-base llama2:7b
+./ollama-mama ctx --create-base microsoft/DialoGPT:medium
+./ollama-mama ctx --create-base fredrezones55/unsloth-deepseek-r1:8b
 ```
 
 ### Delete All Model Variants
@@ -85,6 +95,12 @@ Remove a specific base model and all its generated variants:
 1. Scan all available Ollama models
 2. Ask if you want to overwrite existing variants
 3. Generate context window variants for each base model
+4. Create Modelfiles and register new models with Ollama
+
+**Create Base Command** (`ctx --create-base <model>`) will:
+1. Validate the specified model exists and is a base model
+2. Ask if you want to overwrite existing variants
+3. Generate context window variants for only that model
 4. Create Modelfiles and register new models with Ollama
 
 **Delete Command** (`ctx --delete`) will:
@@ -117,6 +133,26 @@ INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
     CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-llama2-7b-8k.modelfile
     CREATING Ollama model 'llama2:7b-8k'...
     SUCCESS: Created 'llama2:7b-8k'.
+```
+
+**Create Base Command:**
+```
+$ ./ollama-mama ctx --create-base llama2:7b
+--- Starting Base Model Variant Creation ---
+Target base model: llama2:7b
+INFO: Modelfiles will be saved in '/home/user/dev/ollama/Modelfiles'
+INFO: 'llama2:7b' validated as a base model.
+Do you want to overwrite existing Modelfiles and recreate models? (y/N) y
+INFO: Overwrite enabled. Existing files will be replaced.
+---
+Processing Tag: llama2:7b
+INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
+ -> Preparing variant: llama2:7b-8k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-llama2-7b-8k.modelfile
+    CREATING Ollama model 'llama2:7b-8k'...
+    SUCCESS: Created 'llama2:7b-8k'.
+---
+Base model variant creation completed.
 ```
 
 **Delete Command:**
