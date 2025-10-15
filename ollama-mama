@@ -23,6 +23,9 @@ set -o pipefail # The return value of a pipeline is the status of the last comma
 OUTPUT_DIR="$HOME/dev/ollama/Modelfiles"
 START_CONTEXT=8192
 
+# Global flag for auto-yes mode
+AUTO_YES=false
+
 # --- Functions ---
 
 is_conforming_model_name() {
@@ -88,7 +91,7 @@ show_naming_warning() {
 }
 
 show_usage() {
-    echo "Usage: $0 [ctx|model] [options]"
+    echo "Usage: $0 [ctx|model] [options] [--yes|-y]"
     echo ""
     echo "Context Commands:"
     echo "  ctx --create              Create model variants with different context window sizes"
@@ -100,14 +103,17 @@ show_usage() {
     echo "Model Commands:"
     echo "  model --autorename        Auto-rename models with problematic naming patterns"
     echo ""
+    echo "Global Options:"
+    echo "  --yes, -y                 Automatically answer 'yes' to all confirmation prompts"
+    echo ""
     echo "Examples:"
     echo "  $0 ctx --create"
-    echo "  $0 ctx --delete"
-    echo "  $0 ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b"
-    echo "  $0 ctx --create-base fredrezones55/unsloth-deepseek-r1:8b"
+    echo "  $0 ctx --delete -y"
+    echo "  $0 ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b --yes"
+    echo "  $0 ctx --create-base fredrezones55/unsloth-deepseek-r1:8b -y"
     echo "  $0 ctx --list"
     echo "  $0 ctx --list llama"
-    echo "  $0 model --autorename"
+    echo "  $0 model --autorename --yes"
 }
 
 create_variants_for_model() {
@@ -171,13 +177,18 @@ create_models() {
     echo "INFO: Modelfiles will be saved in '$OUTPUT_DIR'"
 
     OVERWRITE_ALL=false
-    read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$AUTO_YES" = true ]; then
         OVERWRITE_ALL=true
-        echo "INFO: Overwrite enabled. Existing files will be replaced."
+        echo "INFO: Auto-yes mode enabled. Overwrite enabled. Existing files will be replaced."
     else
-        echo "INFO: Overwrite disabled. Existing models/files will be skipped."
+        read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            OVERWRITE_ALL=true
+            echo "INFO: Overwrite enabled. Existing files will be replaced."
+        else
+            echo "INFO: Overwrite disabled. Existing models/files will be skipped."
+        fi
     fi
 
     ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
@@ -335,13 +346,18 @@ create_base_model() {
 
     # Get overwrite preference
     OVERWRITE_ALL=false
-    read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$AUTO_YES" = true ]; then
         OVERWRITE_ALL=true
-        echo "INFO: Overwrite enabled. Existing files will be replaced."
+        echo "INFO: Auto-yes mode enabled. Overwrite enabled. Existing files will be replaced."
     else
-        echo "INFO: Overwrite disabled. Existing models/files will be skipped."
+        read -p "Do you want to overwrite existing Modelfiles and recreate models? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            OVERWRITE_ALL=true
+            echo "INFO: Overwrite enabled. Existing files will be replaced."
+        else
+            echo "INFO: Overwrite disabled. Existing models/files will be skipped."
+        fi
     fi
 
     # Get model information
@@ -419,11 +435,15 @@ delete_models() {
     echo "  - ${#GENERATED_MODELS[@]} Ollama model variant(s)"
     echo "  - ${#MODELFILES_TO_DELETE[@]} Modelfile(s)"
     echo ""
-    read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "INFO: Deletion cancelled."
-        return 0
+    if [ "$AUTO_YES" = true ]; then
+        echo "INFO: Auto-yes mode enabled. Proceeding with deletion."
+    else
+        read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "INFO: Deletion cancelled."
+            return 0
+        fi
     fi
 
     # Delete Ollama models
@@ -710,11 +730,15 @@ delete_base_model() {
         echo ""
     fi
     
-    read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "INFO: Deletion cancelled."
-        return 0
+    if [ "$AUTO_YES" = true ]; then
+        echo "INFO: Auto-yes mode enabled. Proceeding with deletion."
+    else
+        read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "INFO: Deletion cancelled."
+            return 0
+        fi
     fi
 
     # Delete Ollama models
@@ -1038,22 +1062,28 @@ autorename_models() {
     echo "  - Generate corresponding Modelfiles"
     echo ""
     
-    read -p "Do you want to proceed with the transformations? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "INFO: Auto-rename cancelled."
-        return 0
-    fi
-    
-    # Ask about removing original models
-    REMOVE_ORIGINALS=false
-    read -p "Do you want to remove the original models after successful rename? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [ "$AUTO_YES" = true ]; then
+        echo "INFO: Auto-yes mode enabled. Proceeding with transformations."
         REMOVE_ORIGINALS=true
-        echo "INFO: Original models will be removed after successful transformation."
+        echo "INFO: Auto-yes mode enabled. Original models will be removed after successful transformation."
     else
-        echo "INFO: Original models will be kept."
+        read -p "Do you want to proceed with the transformations? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "INFO: Auto-rename cancelled."
+            return 0
+        fi
+        
+        # Ask about removing original models
+        REMOVE_ORIGINALS=false
+        read -p "Do you want to remove the original models after successful rename? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            REMOVE_ORIGINALS=true
+            echo "INFO: Original models will be removed after successful transformation."
+        else
+            echo "INFO: Original models will be kept."
+        fi
     fi
     
     mkdir -p "$OUTPUT_DIR"
@@ -1143,6 +1173,22 @@ EOM
 }
 
 # --- Main Script Logic ---
+
+# Parse global flags first
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --yes|-y)
+            AUTO_YES=true
+            ;;
+        *)
+            ARGS+=("$arg")
+            ;;
+    esac
+done
+
+# Reset positional parameters to filtered arguments
+set -- "${ARGS[@]}"
 
 # Check arguments
 if [ $# -eq 0 ]; then
