@@ -248,9 +248,15 @@ delete_base_model() {
         if [ "$model_tag" = "$base_model" ]; then
             BASE_MODEL_EXISTS=true
             MODELS_TO_DELETE+=("$model_tag")
-        elif [[ "$model_tag" =~ ^${base_model}-[0-9]+k$ ]]; then
-            # This is a variant of the base model
-            MODELS_TO_DELETE+=("$model_tag")
+        else
+            # Extract the base part of the model tag (everything before the last colon and context suffix)
+            # For variants like "model:tag-8k", we want to match against "model:tag"
+            if [[ "$model_tag" =~ ^(.+)-[0-9]+k$ ]]; then
+                variant_base="${BASH_REMATCH[1]}"
+                if [ "$variant_base" = "$base_model" ]; then
+                    MODELS_TO_DELETE+=("$model_tag")
+                fi
+            fi
         fi
     done
 
