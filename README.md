@@ -267,6 +267,50 @@ Are you sure you want to proceed? (y/N)
 
 This command is particularly useful when you want to completely remove a model family from your system, including the original base model and all context window variants that were generated from it.
 
+**Auto-Rename Command:**
+```
+$ ./ollama-mama model --autorename
+--- Starting Model Auto-Rename ---
+Scanning for models with problematic naming patterns...
+
+Found 2 model(s) with problematic naming patterns:
+
+Proposed Transformations:
+=========================
+  hf.co/TheBloke/deepseek-coder-6.7B-instruct-GGUF:Q4_K_M
+    -> hf.co/TheBloke/deepseek-coder-instruct-GGUF-Q4_K_M:7B
+
+  microsoft/DialoGPT-30B-base:Q8_0
+    -> microsoft/DialoGPT-base-Q8_0:30B
+
+This will:
+  - Create 2 new model(s) with corrected names
+  - Generate corresponding Modelfiles
+
+Do you want to proceed with the transformations? (y/N) y
+
+Do you want to remove the original models after successful rename? (y/N) y
+INFO: Original models will be removed after successful transformation.
+
+INFO: Modelfiles will be saved in '/home/user/dev/ollama/Modelfiles'
+
+--- Processing Transformations ---
+Processing: hf.co/TheBloke/deepseek-coder-6.7B-instruct-GGUF:Q4_K_M -> hf.co/TheBloke/deepseek-coder-instruct-GGUF-Q4_K_M:7B
+  CREATED Modelfile: /home/user/dev/ollama/Modelfiles/autorename-hf.co-TheBloke-deepseek-coder-instruct-GGUF-Q4_K_M-7B.modelfile
+  CREATING Ollama model 'hf.co/TheBloke/deepseek-coder-instruct-GGUF-Q4_K_M:7B'...
+  SUCCESS: Created 'hf.co/TheBloke/deepseek-coder-instruct-GGUF-Q4_K_M:7B'
+
+--- Auto-Rename Summary ---
+Successfully transformed: 2 model(s)
+Failed transformations: 0
+
+Successfully renamed models:
+  hf.co/TheBloke/deepseek-coder-6.7B-instruct-GGUF:Q4_K_M -> hf.co/TheBloke/deepseek-coder-instruct-GGUF-Q4_K_M:7B
+  microsoft/DialoGPT-30B-base:Q8_0 -> microsoft/DialoGPT-base-Q8_0:30B
+
+Auto-rename completed.
+```
+
 ## ⚙️ Configuration
 
 ### Default Settings
