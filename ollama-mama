@@ -42,6 +42,8 @@ show_usage() {
     echo "  $0 ctx --create-base fredrezones55/unsloth-deepseek-r1:8b"
     echo "  $0 ctx --list"
     echo "  $0 ctx --list llama"
+    echo "  $0 ctx --list"
+    echo "  $0 ctx --list llama"
 }
 
 create_variants_for_model() {
