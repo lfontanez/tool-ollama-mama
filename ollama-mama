@@ -472,6 +472,11 @@ list_models() {
             continue
         fi
         
+        # Skip empty or malformed model tags
+        if [ -z "$model_tag" ] || [[ "$model_tag" =~ ^[[:space:]]*$ ]]; then
+            continue
+        fi
+        
         # Check if it's a base model (not derived from another)
         modelfile_content=$(ollama show --modelfile "$model_tag" 2>/dev/null || echo "")
         
@@ -482,33 +487,57 @@ list_models() {
         # Get model information
         model_info_text=$(ollama show "$model_tag" 2>/dev/null || echo "")
         
-        # Extract parameter size and max context with fallbacks
-        param_size=$(echo "$model_info_text" | grep 'parameters' | awk '{print $2}' || echo "Unknown")
-        max_ctx=$(echo "$model_info_text" | grep 'context length' | awk '{print $3}' || echo "0")
+        # Extract parameter size and max context with improved parsing
+        param_size_raw=$(echo "$model_info_text" | grep 'parameters' | awk '{print $2}' || echo "")
+        max_ctx_raw=$(echo "$model_info_text" | grep 'context length' | awk '{print $3}' || echo "")
         
-        # Handle parsing errors gracefully
-        if [ -z "$param_size" ] || [ "$param_size" = "" ]; then
+        # Clean and validate parameter size
+        if [ -n "$param_size_raw" ] && [ "$param_size_raw" != "" ]; then
+            # Remove any trailing characters and normalize (e.g., "7.24B" -> "7.24B")
+            param_size=$(echo "$param_size_raw" | sed 's/[[:space:]]*$//')
+        else
             param_size="Unknown"
         fi
         
-        if [ -z "$max_ctx" ] || [ "$max_ctx" = "" ] || ! [[ "$max_ctx" =~ ^[0-9]+$ ]]; then
+        # Clean and validate max context - ensure it's a valid integer
+        if [ -n "$max_ctx_raw" ] && [[ "$max_ctx_raw" =~ ^[0-9]+$ ]]; then
+            max_ctx="$max_ctx_raw"
+        else
             max_ctx="0"
         fi
         
-        # Calculate estimated memory usage for context (rough approximation)
-        # Assuming ~4 bytes per token for context storage
-        if [ "$max_ctx" -gt 0 ]; then
-            context_mb=$((max_ctx * 4 / 1024 / 1024))
-            if [ $context_mb -eq 0 ]; then
-                context_mb=1
+        # Calculate estimated memory usage for context (more accurate approximation)
+        # Using 2 bytes per token as a conservative estimate for context storage
+        if [ "$max_ctx" -gt 0 ] && [[ "$max_ctx" =~ ^[0-9]+$ ]]; then
+            # Calculate in KB first to avoid integer overflow and get better precision
+            context_kb=$((max_ctx * 2 / 1024))
+            
+            if [ "$context_kb" -ge 1024 ]; then
+                # Convert to MB if >= 1024 KB
+                context_mb=$((context_kb / 1024))
+                if [ "$context_mb" -ge 1024 ]; then
+                    # Convert to GB if >= 1024 MB
+                    context_gb=$((context_mb / 1024))
+                    context_display="~${context_gb} GB"
+                else
+                    context_display="~${context_mb} MB"
+                fi
+            else
+                # Show in KB for smaller values
+                if [ "$context_kb" -eq 0 ]; then
+                    context_kb=1  # Minimum 1 KB
+                fi
+                context_display="~${context_kb} KB"
             fi
-            context_display="~${context_mb} MB"
         else
             context_display="Unknown"
         fi
         
-        # Store model data: "max_ctx|model_tag|param_size|context_display"
-        MODEL_DATA+=("${max_ctx}|${model_tag}|${param_size}|${context_display}")
+        # Validate all components before adding to array
+        if [ -n "$model_tag" ] && [ -n "$param_size" ] && [ -n "$max_ctx" ] && [ -n "$context_display" ]; then
+            # Store model data: "max_ctx|model_tag|param_size|context_display"
+            MODEL_DATA+=("${max_ctx}|${model_tag}|${param_size}|${context_display}")
+        fi
     done
     
     # Check if any base models were found
@@ -527,16 +556,26 @@ list_models() {
     IFS=$'\n' SORTED_DATA=($(printf '%s\n' "${MODEL_DATA[@]}" | sort -t'|' -k1,1nr))
     
     # Print table header
-    printf "%-4s | %-30s | %-10s | %-11s | %-13s\n" "Rank" "Model Name" "Parameters" "Max Context" "Context (MB)"
+    printf "%-4s | %-30s | %-10s | %-11s | %-13s\n" "Rank" "Model Name" "Parameters" "Max Context" "Context Mem"
     printf "%-4s-|-%-30s-|-%-10s-|-%-11s-|-%-13s\n" "----" "------------------------------" "----------" "-----------" "-------------"
     
     # Print sorted results
     rank=1
     for data in "${SORTED_DATA[@]}"; do
+        # Validate data format before processing
+        if [[ "$data" != *"|"* ]]; then
+            continue  # Skip malformed entries
+        fi
+        
         IFS='|' read -r max_ctx model_tag param_size context_display <<< "$data"
         
+        # Validate parsed components
+        if [ -z "$model_tag" ] || [ -z "$param_size" ] || [ -z "$context_display" ]; then
+            continue  # Skip entries with missing data
+        fi
+        
         # Format max context with commas for readability
-        if [ "$max_ctx" -gt 0 ]; then
+        if [ "$max_ctx" -gt 0 ] && [[ "$max_ctx" =~ ^[0-9]+$ ]]; then
             formatted_ctx=$(printf "%'d" "$max_ctx" 2>/dev/null || echo "$max_ctx")
         else
             formatted_ctx="Unknown"
