@@ -10,6 +10,7 @@ A robust bash script that automatically generates Ollama model variants with dif
 
 - 🔄 **Automatic Variant Generation**: Creates model variants with context sizes from 8K up to the model's maximum capacity
 - 🗑️ **Cleanup Management**: Delete generated model variants and their Modelfiles with confirmation
+- 🎯 **Selective Base Model Deletion**: Remove specific base models and all their generated variants
 - 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
 - 🔧 **Backward Compatibility**: Works with older Ollama versions by parsing plain text output
 - 📁 **Smart File Management**: Sanitizes model names for valid filenames
@@ -62,7 +63,7 @@ Generate context window variants for all base models:
 ./ollama-mama ctx --create
 ```
 
-### Delete Model Variants
+### Delete All Model Variants
 
 Remove all generated model variants and their Modelfiles:
 
@@ -75,6 +76,8 @@ Remove all generated model variants and their Modelfiles:
 Remove a specific base model and all its generated variants:
 
 ```bash
+./ollama-mama ctx --delete-base llama2:7b
+./ollama-mama ctx --delete-base microsoft/DialoGPT:medium
 ./ollama-mama ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b
 ```
 
@@ -95,6 +98,7 @@ Remove a specific base model and all its generated variants:
 2. List all models and Modelfiles to be removed
 3. Ask for confirmation before deletion
 4. Remove the base model, all variants, and corresponding Modelfiles
+5. Perform proper cleanup of Ollama blobs and registry entries
 
 ### Example Output
 
@@ -162,6 +166,8 @@ This will delete:
 
 Are you sure you want to proceed? (y/N)
 ```
+
+This command is particularly useful when you want to completely remove a model family from your system, including the original base model and all context window variants that were generated from it.
 
 ## ⚙️ Configuration
 
@@ -252,7 +258,7 @@ bash -x ./ollama-mama ctx --delete
 Display available commands:
 ```bash
 ./ollama-mama
-# Shows: Usage: ./ollama-mama ctx [--create|--delete]
+# Shows: Usage: ./ollama-mama ctx [--create|--delete|--delete-base <model>]
 ```
 
 ## 🤝 Contributing
