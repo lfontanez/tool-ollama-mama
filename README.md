@@ -19,6 +19,8 @@ A robust bash script that automatically generates Ollama model variants with dif
 - 🎯 **Selective Overwrite**: Choose whether to overwrite existing models/files
 - 📊 **Progress Tracking**: Clear progress indicators and status messages with dynamic column formatting
 - 🚫 **Error Prevention**: Prevents silent exits with comprehensive error handling
+- 🏷️ **Naming Convention Enforcement**: Ensures all models follow proper Ollama naming standards
+- 🔄 **Auto-Rename Functionality**: Automatically fixes models with problematic naming patterns
 
 ## 🚀 Quick Start
 
@@ -50,19 +52,46 @@ chmod +x ollama-mama
 
 ### Command Structure
 
-The script now uses a command-based structure:
+The script uses a command-based structure with naming convention enforcement:
 
 ```bash
 ./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]
+./ollama-mama model [--autorename]
 ```
+
+### ⚠️ Important: Naming Convention Requirements
+
+**All models must follow Ollama naming conventions before context variants can be created:**
+
+- ✅ **Correct Format**: `[MODEL_NAME]:[SIZE]-[TYPE]-[QUANTIZATION]`
+- ✅ **Examples**: `llama3.1:8b-instruct-q4_K_M`, `qwen2.5:14b`, `microsoft/DialoGPT:medium`
+- ❌ **Incorrect**: `model-6.7B-instruct:Q4_K_M` (size in wrong place)
+
+**Workflow**: Run `./ollama-mama model --autorename` first to fix any non-conforming models, then use `ctx` commands.
+
+### Fix Model Naming (Required First Step)
+
+Before creating context variants, ensure all models follow proper naming conventions:
+
+```bash
+./ollama-mama model --autorename
+```
+
+This command will:
+- Scan for models with problematic naming patterns
+- Propose corrections (e.g., `model-6.7B-instruct:Q4_K_M` → `model-instruct-Q4_K_M:6.7B`)
+- Create properly named models
+- Optionally remove the original incorrectly named models
 
 ### Create Model Variants
 
-Generate context window variants for all base models:
+Generate context window variants for all conforming base models:
 
 ```bash
 ./ollama-mama ctx --create
 ```
+
+**Note**: This command will reject non-conforming models and suggest running `--autorename` first.
 
 ### Create Variants for Specific Model
 
