@@ -1,26 +1,43 @@
-# 🦙 Ollama Context Window Variant Generator
+# 🦙 Ollama Mama - Comprehensive Ollama Management Tool
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
 [![Ollama](https://img.shields.io/badge/Ollama-Compatible-blue.svg)](https://ollama.ai/)
 
-A robust bash script that automatically generates Ollama model variants with different context window sizes. Perfect for testing and optimizing model performance across various context lengths.
+A comprehensive bash-based management tool for Ollama that provides essential utilities for model management, optimization, and maintenance. From context window variant generation to model naming convention enforcement, ollama-mama streamlines your Ollama workflow with powerful automation features.
 
-## ✨ Features
+## ✨ Core Features
 
+### 🔧 Model Management (`model` commands)
+- 🏷️ **Naming Convention Enforcement**: Ensures all models follow proper Ollama naming standards
+- 🔄 **Auto-Rename Functionality**: Automatically fixes models with problematic naming patterns
+- 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
+
+### 📊 Context Window Management (`ctx` commands)
 - 🔄 **Automatic Variant Generation**: Creates model variants with context sizes from 8K up to the model's maximum capacity
 - 🗑️ **Cleanup Management**: Delete generated model variants and their Modelfiles with confirmation
 - 🎯 **Selective Base Model Deletion**: Remove specific base models and all their generated variants
 - 📊 **Context Window Leaderboard**: List and rank base models by their maximum context window size with memory usage estimates
-- 🛡️ **Edge Case Handling**: Properly handles namespace/model names (e.g., `microsoft/DialoGPT`)
+
+### 🚀 System Features
 - 🔧 **Backward Compatibility**: Works with older Ollama versions by parsing plain text output
 - 📁 **Smart File Management**: Sanitizes model names for valid filenames
 - ⚡ **Batch Processing**: Processes all available models in one run
 - 🎯 **Selective Overwrite**: Choose whether to overwrite existing models/files
 - 📊 **Progress Tracking**: Clear progress indicators and status messages with dynamic column formatting
 - 🚫 **Error Prevention**: Prevents silent exits with comprehensive error handling
-- 🏷️ **Naming Convention Enforcement**: Ensures all models follow proper Ollama naming standards
-- 🔄 **Auto-Rename Functionality**: Automatically fixes models with problematic naming patterns
+
+## 🎯 Tool Vision
+
+Ollama Mama is designed to be your go-to companion for Ollama model management. As the Ollama ecosystem grows, managing models, variants, and configurations becomes increasingly complex. This tool addresses common pain points:
+
+- **Model Organization**: Keep your models properly named and organized
+- **Context Optimization**: Easily test different context window sizes for performance tuning
+- **Maintenance**: Clean up unused variants and maintain a tidy model library
+- **Standards Compliance**: Ensure all models follow Ollama naming conventions
+- **Automation**: Reduce manual work with intelligent batch operations
+
+Whether you're a researcher testing model performance, a developer optimizing applications, or an enthusiast managing a large model collection, ollama-mama provides the tools you need.
 
 ## 🚀 Quick Start
 
@@ -43,7 +60,12 @@ cd tool-ollama-mama
 chmod +x ollama-mama
 ```
 
-3. Run the script:
+3. Start with model management (recommended first step):
+```bash
+./ollama-mama model --autorename
+```
+
+4. Then create context variants:
 ```bash
 ./ollama-mama ctx --create
 ```
@@ -52,24 +74,22 @@ chmod +x ollama-mama
 
 ### Command Structure
 
-The script uses a command-based structure with naming convention enforcement:
+Ollama Mama uses a modular command structure organized by functionality:
 
 ```bash
-./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]
+# Model management commands
 ./ollama-mama model [--autorename]
+
+# Context window management commands  
+./ollama-mama ctx [--create|--delete|--delete-base <model>|--create-base <model>|--list [filter]]
+
+# Global options (available for all commands)
+[--yes|-y]  # Auto-confirm all prompts
 ```
 
-### ⚠️ Important: Naming Convention Requirements
+### 🏷️ Model Management Commands
 
-**All models must follow Ollama naming conventions before context variants can be created:**
-
-- ✅ **Correct Format**: `[MODEL_NAME]:[SIZE]-[TYPE]-[QUANTIZATION]`
-- ✅ **Examples**: `llama3.1:8b-instruct-q4_K_M`, `qwen2.5:14b`, `microsoft/DialoGPT:medium`
-- ❌ **Incorrect**: `model-6.7B-instruct:Q4_K_M` (size in wrong place)
-
-**Workflow**: Run `./ollama-mama model --autorename` first to fix any non-conforming models, then use `ctx` commands.
-
-### Fix Model Naming (Required First Step)
+#### Fix Model Naming (Recommended First Step)
 
 Before creating context variants, ensure all models follow proper naming conventions:
 
@@ -83,7 +103,19 @@ This command will:
 - Create properly named models
 - Optionally remove the original incorrectly named models
 
-### Create Model Variants
+### ⚠️ Important: Naming Convention Requirements
+
+**All models must follow Ollama naming conventions before context variants can be created:**
+
+- ✅ **Correct Format**: `[MODEL_NAME]:[SIZE]-[TYPE]-[QUANTIZATION]`
+- ✅ **Examples**: `llama3.1:8b-instruct-q4_K_M`, `qwen2.5:14b`, `microsoft/DialoGPT:medium`
+- ❌ **Incorrect**: `model-6.7B-instruct:Q4_K_M` (size in wrong place)
+
+**Workflow**: Run `./ollama-mama model --autorename` first to fix any non-conforming models, then use `ctx` commands.
+
+### 📊 Context Window Management Commands
+
+#### Create Model Variants
 
 Generate context window variants for all conforming base models:
 
@@ -93,7 +125,7 @@ Generate context window variants for all conforming base models:
 
 **Note**: This command will reject non-conforming models and suggest running `--autorename` first.
 
-### Create Variants for Specific Model
+#### Create Variants for Specific Model
 
 Generate context window variants for a single base model:
 
@@ -103,7 +135,7 @@ Generate context window variants for a single base model:
 ./ollama-mama ctx --create-base fredrezones55/unsloth-deepseek-r1:8b
 ```
 
-### Delete All Model Variants
+#### Delete All Model Variants
 
 Remove all generated model variants and their Modelfiles:
 
@@ -111,7 +143,7 @@ Remove all generated model variants and their Modelfiles:
 ./ollama-mama ctx --delete
 ```
 
-### Delete Specific Base Model
+#### Delete Specific Base Model
 
 Remove a specific base model and all its generated variants:
 
@@ -121,7 +153,7 @@ Remove a specific base model and all its generated variants:
 ./ollama-mama ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b
 ```
 
-### List Base Models
+#### List Base Models
 
 Display a context window leaderboard of all base models:
 
@@ -451,11 +483,23 @@ Contributions are welcome! Here's how you can help:
 
 ## 📋 Roadmap
 
+### Context Window Features
 - [ ] Support for custom context size ranges
+- [ ] Model performance benchmarking across context sizes
+- [ ] Context window optimization recommendations
+
+### Model Management Features  
+- [ ] Model dependency tracking and visualization
+- [ ] Bulk model operations (download, update, remove)
+- [ ] Model metadata management and tagging
+- [ ] Model storage optimization and deduplication
+
+### System Integration
 - [ ] JSON configuration file support
-- [ ] Model performance benchmarking
 - [ ] Integration with Ollama model registry
+- [ ] REST API for programmatic access
 - [ ] GUI version for non-technical users
+- [ ] Docker container support
 
 ## 📄 License
 
@@ -476,5 +520,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <strong>Made with ❤️ for the Ollama community</strong>
+  <strong>Made with ❤️ for the Ollama community</strong><br>
+  <em>Your comprehensive toolkit for Ollama model management</em>
 </div>
