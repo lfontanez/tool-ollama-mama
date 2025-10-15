@@ -26,15 +26,17 @@ START_CONTEXT=8192
 # --- Functions ---
 
 show_usage() {
-    echo "Usage: $0 ctx [--create|--delete]"
+    echo "Usage: $0 ctx [--create|--delete|--delete-base <model>]"
     echo ""
     echo "Commands:"
-    echo "  ctx --create    Create model variants with different context window sizes"
-    echo "  ctx --delete    Delete generated model variants and their Modelfiles"
+    echo "  ctx --create              Create model variants with different context window sizes"
+    echo "  ctx --delete              Delete generated model variants and their Modelfiles"
+    echo "  ctx --delete-base <model> Delete a specific base model and all its variants"
     echo ""
     echo "Examples:"
     echo "  $0 ctx --create"
     echo "  $0 ctx --delete"
+    echo "  $0 ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b"
 }
 
 create_models() {
@@ -225,6 +227,121 @@ delete_models() {
     echo "Deletion completed."
 }
 
+delete_base_model() {
+    local base_model="$1"
+    
+    echo "--- Starting Base Model Deletion ---"
+    echo "Target base model: $base_model"
+    
+    ALL_MODEL_TAGS=$(ollama list | awk 'NR>1 {print $1}' || true)
+
+    if [ -z "$ALL_MODEL_TAGS" ]; then
+        echo "ERROR: No Ollama models found. Exiting."
+        exit 1
+    fi
+
+    # Find the base model and its variants
+    MODELS_TO_DELETE=()
+    BASE_MODEL_EXISTS=false
+    
+    for model_tag in $ALL_MODEL_TAGS; do
+        if [ "$model_tag" = "$base_model" ]; then
+            BASE_MODEL_EXISTS=true
+            MODELS_TO_DELETE+=("$model_tag")
+        elif [[ "$model_tag" =~ ^${base_model}-[0-9]+k$ ]]; then
+            # This is a variant of the base model
+            MODELS_TO_DELETE+=("$model_tag")
+        fi
+    done
+
+    if [ "$BASE_MODEL_EXISTS" = false ]; then
+        echo "WARNING: Base model '$base_model' not found in Ollama."
+    fi
+
+    if [ ${#MODELS_TO_DELETE[@]} -eq 0 ]; then
+        echo "INFO: No models found to delete for base model '$base_model'."
+        return 0
+    fi
+
+    echo "Found ${#MODELS_TO_DELETE[@]} model(s) to delete:"
+    for model in "${MODELS_TO_DELETE[@]}"; do
+        if [ "$model" = "$base_model" ]; then
+            echo "  - $model (base model)"
+        else
+            echo "  - $model (variant)"
+        fi
+    done
+    echo ""
+
+    # Find corresponding Modelfiles for variants
+    MODELFILES_TO_DELETE=()
+    if [ -d "$OUTPUT_DIR" ]; then
+        # Sanitize base model name for filename matching
+        model_base_name_raw=$(echo "$base_model" | cut -d':' -f1)
+        model_base_name=$(echo "$model_base_name_raw" | tr '/' '-')
+        
+        # Extract parameters from base model tag if present
+        if [[ "$base_model" =~ : ]]; then
+            model_params=$(echo "$base_model" | cut -d':' -f2)
+        else
+            model_params="*"
+        fi
+        
+        for modelfile in "$OUTPUT_DIR"/my-${model_base_name}-${model_params}-*k.modelfile; do
+            if [ -f "$modelfile" ]; then
+                MODELFILES_TO_DELETE+=("$modelfile")
+            fi
+        done
+    fi
+
+    if [ ${#MODELFILES_TO_DELETE[@]} -gt 0 ]; then
+        echo "Found ${#MODELFILES_TO_DELETE[@]} corresponding Modelfile(s):"
+        for modelfile in "${MODELFILES_TO_DELETE[@]}"; do
+            echo "  - $(basename "$modelfile")"
+        done
+        echo ""
+    fi
+
+    # Confirmation prompt
+    echo "This will delete:"
+    echo "  - ${#MODELS_TO_DELETE[@]} Ollama model(s) (including base model and variants)"
+    echo "  - ${#MODELFILES_TO_DELETE[@]} Modelfile(s)"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "INFO: Deletion cancelled."
+        return 0
+    fi
+
+    # Delete Ollama models
+    echo "--- Deleting Ollama Models ---"
+    for model in "${MODELS_TO_DELETE[@]}"; do
+        echo "Deleting model: $model"
+        if ollama rm "$model"; then
+            echo "  SUCCESS: Deleted '$model'"
+        else
+            echo "  ERROR: Failed to delete '$model'"
+        fi
+    done
+
+    # Delete Modelfiles
+    if [ ${#MODELFILES_TO_DELETE[@]} -gt 0 ]; then
+        echo "--- Deleting Modelfiles ---"
+        for modelfile in "${MODELFILES_TO_DELETE[@]}"; do
+            echo "Deleting file: $(basename "$modelfile")"
+            if rm -f "$modelfile"; then
+                echo "  SUCCESS: Deleted '$(basename "$modelfile")'"
+            else
+                echo "  ERROR: Failed to delete '$(basename "$modelfile")'"
+            fi
+        done
+    fi
+
+    echo "---"
+    echo "Base model deletion completed."
+}
+
 # --- Main Script Logic ---
 
 # Check arguments
@@ -239,18 +356,30 @@ if [ "$1" != "ctx" ]; then
     exit 1
 fi
 
-if [ $# -ne 2 ]; then
-    echo "ERROR: Expected exactly 2 arguments"
-    show_usage
-    exit 1
-fi
-
 case "$2" in
     --create)
+        if [ $# -ne 2 ]; then
+            echo "ERROR: --create expects exactly 2 arguments"
+            show_usage
+            exit 1
+        fi
         create_models
         ;;
     --delete)
+        if [ $# -ne 2 ]; then
+            echo "ERROR: --delete expects exactly 2 arguments"
+            show_usage
+            exit 1
+        fi
         delete_models
+        ;;
+    --delete-base)
+        if [ $# -ne 3 ]; then
+            echo "ERROR: --delete-base expects exactly 3 arguments (including model name)"
+            show_usage
+            exit 1
+        fi
+        delete_base_model "$3"
         ;;
     *)
         echo "ERROR: Unknown command '$2'"

@@ -51,7 +51,7 @@ chmod +x ollama-mama
 The script now uses a command-based structure:
 
 ```bash
-./ollama-mama ctx [--create|--delete]
+./ollama-mama ctx [--create|--delete|--delete-base <model>]
 ```
 
 ### Create Model Variants
@@ -70,6 +70,14 @@ Remove all generated model variants and their Modelfiles:
 ./ollama-mama ctx --delete
 ```
 
+### Delete Specific Base Model
+
+Remove a specific base model and all its generated variants:
+
+```bash
+./ollama-mama ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b
+```
+
 **Create Command** (`ctx --create`) will:
 1. Scan all available Ollama models
 2. Ask if you want to overwrite existing variants
@@ -81,6 +89,12 @@ Remove all generated model variants and their Modelfiles:
 2. List corresponding Modelfiles to be removed
 3. Ask for confirmation before deletion
 4. Remove both Ollama models and Modelfiles
+
+**Delete Base Command** (`ctx --delete-base <model>`) will:
+1. Find the specified base model and all its variants
+2. List all models and Modelfiles to be removed
+3. Ask for confirmation before deletion
+4. Remove the base model, all variants, and corresponding Modelfiles
 
 ### Example Output
 
@@ -124,6 +138,29 @@ This will delete:
   - 5 Modelfile(s)
 
 Do you want to proceed? (y/N)
+```
+
+**Delete Base Command:**
+```
+$ ./ollama-mama ctx --delete-base llama2:7b
+--- Starting Base Model Deletion ---
+Target base model: llama2:7b
+Found 4 model(s) to delete:
+  - llama2:7b (base model)
+  - llama2:7b-8k (variant)
+  - llama2:7b-16k (variant)
+  - llama2:7b-32k (variant)
+
+Found 3 corresponding Modelfile(s):
+  - my-llama2-7b-8k.modelfile
+  - my-llama2-7b-16k.modelfile
+  - my-llama2-7b-32k.modelfile
+
+This will delete:
+  - 4 Ollama model(s) (including base model and variants)
+  - 3 Modelfile(s)
+
+Are you sure you want to proceed? (y/N)
 ```
 
 ## ⚙️ Configuration
