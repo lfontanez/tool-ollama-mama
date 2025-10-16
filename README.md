@@ -130,9 +130,9 @@ Generate context window variants for all conforming base models:
 Generate context window variants for a single base model:
 
 ```bash
-./ollama-mama ctx --create-base llama2:7b
-./ollama-mama ctx --create-base microsoft/DialoGPT:medium
-./ollama-mama ctx --create-base fredrezones55/unsloth-deepseek-r1:8b
+./ollama-mama ctx --create-base qwen3-coder:latest
+./ollama-mama ctx --create-base internlm/internlm2.5:latest
+./ollama-mama ctx --create-base deepseek-r1:latest
 ```
 
 #### Delete All Model Variants
@@ -148,9 +148,9 @@ Remove all generated model variants and their Modelfiles:
 Remove a specific base model and all its generated variants:
 
 ```bash
-./ollama-mama ctx --delete-base llama2:7b
-./ollama-mama ctx --delete-base microsoft/DialoGPT:medium
-./ollama-mama ctx --delete-base fredrezones55/unsloth-deepseek-r1:8b
+./ollama-mama ctx --delete-base qwen3-coder:latest
+./ollama-mama ctx --delete-base internlm/internlm2.5:latest
+./ollama-mama ctx --delete-base deepseek-r1:latest
 ```
 
 #### List Base Models
@@ -164,9 +164,9 @@ Display a context window leaderboard of all base models:
 Filter models by name:
 
 ```bash
-./ollama-mama ctx --list llama
 ./ollama-mama ctx --list qwen
-./ollama-mama ctx --list microsoft
+./ollama-mama ctx --list deepseek
+./ollama-mama ctx --list internlm
 ```
 
 **Create Command** (`ctx --create`) will:
@@ -212,11 +212,11 @@ OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
 
 Rank | Model Name                             | Parameters | Max Context | Context Mem
 -----|----------------------------------------|------------|-------------|-------------
-1    | qwen2.5:72b                            | 72.7B      | 131,072     | ~256 MB
-2    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
-3    | qwen2.5:32b                            | 32.8B      | 131,072     | ~256 MB
-4    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
-5    | qwen2.5:14b                            | 14.8B      | 32,768      | ~64 MB
+1    | qwen3-coder:latest                     | 32.8B      | 262,144     | ~512 MB
+2    | deepseek-r1:latest                     | 70.6B      | 131,072     | ~256 MB
+3    | internlm/internlm2.5:latest            | 7.74B      | 32,768      | ~64 MB
+4    | qwen2.5:14b                            | 14.8B      | 32,768      | ~64 MB
+5    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
 6    | llama2:13b                             | 13.0B      | 4,096       | ~8 MB
 7    | llama2:7b                              | 6.74B      | 4,096       | ~8 MB
 
@@ -225,19 +225,18 @@ Found 7 base model(s).
 
 **List Command with Filter:**
 ```
-$ ./ollama-mama ctx --list llama
+$ ./ollama-mama ctx --list qwen
 OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
 ================================================
-Filter: Models containing 'llama'
+Filter: Models containing 'qwen'
 
 Rank | Model Name                             | Parameters | Max Context | Context Mem
 -----|----------------------------------------|------------|-------------|-------------
-1    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
-2    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
-3    | llama2:13b                             | 13.0B      | 4,096       | ~8 MB
-4    | llama2:7b                              | 6.74B      | 4,096       | ~8 MB
+1    | qwen3-coder:latest                     | 32.8B      | 262,144     | ~512 MB
+2    | qwen2.5:14b                            | 14.8B      | 32,768      | ~64 MB
+3    | qwen2.5:7b                             | 7.62B      | 32,768      | ~64 MB
 
-Found 4 base model(s).
+Found 3 base model(s).
 Use './ollama-mama ctx --list' to see all base models.
 ```
 
@@ -249,31 +248,59 @@ Do you want to overwrite existing Modelfiles and recreate models? (y/N) n
 INFO: Overwrite disabled. Existing models/files will be skipped.
 --- Starting Model Scan ---
 ---
-Processing Tag: llama2:7b
-INFO: 'llama2:7b' identified as a base model.
-INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
- -> Preparing variant: llama2:7b-8k
-    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-llama2-7b-8k.modelfile
-    CREATING Ollama model 'llama2:7b-8k'...
-    SUCCESS: Created 'llama2:7b-8k'.
+Processing Tag: internlm/internlm2.5:latest
+INFO: 'internlm/internlm2.5:latest' identified as a base model.
+INFO: Found Model: internlm/internlm2.5 | Parameters: 7.74B | Max Context: 32768 tokens
+ -> Preparing variant: internlm/internlm2.5:latest-8k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-internlm-internlm2.5-latest-8k.modelfile
+    CREATING Ollama model 'internlm/internlm2.5:latest-8k'...
+    SUCCESS: Created 'internlm/internlm2.5:latest-8k'.
+ -> Preparing variant: internlm/internlm2.5:latest-16k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-internlm-internlm2.5-latest-16k.modelfile
+    CREATING Ollama model 'internlm/internlm2.5:latest-16k'...
+    SUCCESS: Created 'internlm/internlm2.5:latest-16k'.
+ -> Preparing variant: internlm/internlm2.5:latest-32k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-internlm-internlm2.5-latest-32k.modelfile
+    CREATING Ollama model 'internlm/internlm2.5:latest-32k'...
+    SUCCESS: Created 'internlm/internlm2.5:latest-32k'.
 ```
 
 **Create Base Command:**
 ```
-$ ./ollama-mama ctx --create-base llama2:7b
+$ ./ollama-mama ctx --create-base qwen3-coder:latest
 --- Starting Base Model Variant Creation ---
-Target base model: llama2:7b
+Target base model: qwen3-coder:latest
 INFO: Modelfiles will be saved in '/home/user/dev/ollama/Modelfiles'
-INFO: 'llama2:7b' validated as a base model.
+INFO: 'qwen3-coder:latest' validated as a base model.
 Do you want to overwrite existing Modelfiles and recreate models? (y/N) y
 INFO: Overwrite enabled. Existing files will be replaced.
 ---
-Processing Tag: llama2:7b
-INFO: Found Model: llama2 | Parameters: 7B | Max Context: 4096 tokens
- -> Preparing variant: llama2:7b-8k
-    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-llama2-7b-8k.modelfile
-    CREATING Ollama model 'llama2:7b-8k'...
-    SUCCESS: Created 'llama2:7b-8k'.
+Processing Tag: qwen3-coder:latest
+INFO: Found Model: qwen3-coder | Parameters: 32.8B | Max Context: 262144 tokens
+ -> Preparing variant: qwen3-coder:latest-8k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-8k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-8k'...
+    SUCCESS: Created 'qwen3-coder:latest-8k'.
+ -> Preparing variant: qwen3-coder:latest-16k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-16k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-16k'...
+    SUCCESS: Created 'qwen3-coder:latest-16k'.
+ -> Preparing variant: qwen3-coder:latest-32k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-32k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-32k'...
+    SUCCESS: Created 'qwen3-coder:latest-32k'.
+ -> Preparing variant: qwen3-coder:latest-64k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-64k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-64k'...
+    SUCCESS: Created 'qwen3-coder:latest-64k'.
+ -> Preparing variant: qwen3-coder:latest-128k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-128k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-128k'...
+    SUCCESS: Created 'qwen3-coder:latest-128k'.
+ -> Preparing variant: qwen3-coder:latest-256k
+    CREATED Modelfile: /home/user/dev/ollama/Modelfiles/my-qwen3-coder-latest-256k.modelfile
+    CREATING Ollama model 'qwen3-coder:latest-256k'...
+    SUCCESS: Created 'qwen3-coder:latest-256k'.
 ---
 Base model variant creation completed.
 ```
@@ -282,46 +309,59 @@ Base model variant creation completed.
 ```
 $ ./ollama-mama ctx --delete
 --- Starting Model Deletion ---
-Found 5 generated model variant(s):
-  - llama2:7b-8k
-  - llama2:7b-16k
-  - llama2:7b-32k
-  - qwen2.5:14b-8k
-  - qwen2.5:14b-16k
+Found 8 generated model variant(s):
+  - qwen3-coder:latest-8k
+  - qwen3-coder:latest-16k
+  - qwen3-coder:latest-32k
+  - qwen3-coder:latest-64k
+  - qwen3-coder:latest-128k
+  - qwen3-coder:latest-256k
+  - internlm/internlm2.5:latest-8k
+  - internlm/internlm2.5:latest-16k
 
-Found 5 corresponding Modelfile(s):
-  - my-llama2-7b-8k.modelfile
-  - my-llama2-7b-16k.modelfile
-  - my-llama2-7b-32k.modelfile
-  - my-qwen2.5-14b-8k.modelfile
-  - my-qwen2.5-14b-16k.modelfile
+Found 8 corresponding Modelfile(s):
+  - my-qwen3-coder-latest-8k.modelfile
+  - my-qwen3-coder-latest-16k.modelfile
+  - my-qwen3-coder-latest-32k.modelfile
+  - my-qwen3-coder-latest-64k.modelfile
+  - my-qwen3-coder-latest-128k.modelfile
+  - my-qwen3-coder-latest-256k.modelfile
+  - my-internlm-internlm2.5-latest-8k.modelfile
+  - my-internlm-internlm2.5-latest-16k.modelfile
 
 This will delete:
-  - 5 Ollama model variant(s)
-  - 5 Modelfile(s)
+  - 8 Ollama model variant(s)
+  - 8 Modelfile(s)
 
 Do you want to proceed? (y/N)
 ```
 
 **Delete Base Command:**
 ```
-$ ./ollama-mama ctx --delete-base llama2:7b
+$ ./ollama-mama ctx --delete-base deepseek-r1:latest
 --- Starting Base Model Deletion ---
-Target base model: llama2:7b
-Found 4 model(s) to delete:
-  - llama2:7b (base model)
-  - llama2:7b-8k (variant)
-  - llama2:7b-16k (variant)
-  - llama2:7b-32k (variant)
+Target base model: deepseek-r1:latest
+Found 8 model(s) to delete:
+  Base model(s):
+    - deepseek-r1:latest
+  Variant model(s):
+    - deepseek-r1:latest-8k
+    - deepseek-r1:latest-16k
+    - deepseek-r1:latest-32k
+    - deepseek-r1:latest-64k
+    - deepseek-r1:latest-128k
 
-Found 3 corresponding Modelfile(s):
-  - my-llama2-7b-8k.modelfile
-  - my-llama2-7b-16k.modelfile
-  - my-llama2-7b-32k.modelfile
+Found 5 corresponding Modelfile(s):
+  - my-deepseek-r1-latest-8k.modelfile
+  - my-deepseek-r1-latest-16k.modelfile
+  - my-deepseek-r1-latest-32k.modelfile
+  - my-deepseek-r1-latest-64k.modelfile
+  - my-deepseek-r1-latest-128k.modelfile
 
 This will delete:
-  - 4 Ollama model(s) (including base model and variants)
-  - 3 Modelfile(s)
+  - 1 base model(s)
+  - 5 variant model(s)
+  - 5 Modelfile(s)
 
 Are you sure you want to proceed? (y/N)
 ```
@@ -399,13 +439,13 @@ START_CONTEXT=4096  # Start at 4K instead of 8K
 Each generated Modelfile follows this format:
 
 ```dockerfile
-# Modelfile for llama2:7b-16k
+# Modelfile for qwen3-coder:latest-64k
 # Generated by script on Thu Oct 10 14:30:25 EDT 2025
 
-FROM llama2:7b
+FROM qwen3-coder:latest
 
 # Set the new context window size
-PARAMETER num_ctx 16384
+PARAMETER num_ctx 65536
 ```
 
 ### File Naming Convention
@@ -414,8 +454,8 @@ PARAMETER num_ctx 16384
 - **Ollama Tags**: `{original-name}:{params}-{context}`
 
 Examples:
-- `my-llama2-7b-8k.modelfile` → `llama2:7b-8k`
-- `my-microsoft-DialoGPT-medium-16k.modelfile` → `microsoft/DialoGPT:medium-16k`
+- `my-qwen3-coder-latest-8k.modelfile` → `qwen3-coder:latest-8k`
+- `my-internlm-internlm2.5-latest-16k.modelfile` → `internlm/internlm2.5:latest-16k`
 
 ## 🔧 Troubleshooting
 
