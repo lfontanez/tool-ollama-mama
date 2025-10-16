@@ -4,7 +4,7 @@
 [![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
 [![Ollama](https://img.shields.io/badge/Ollama-Compatible-blue.svg)](https://ollama.ai/)
 
-A mprehensive bash-based management tool for Ollama that provides essential utilities for model management, optimization, and maintenance. From context window variant generation to model naming convention enforcement, ollama-mama streamlines some TTIH2DM - Tedious Tasks I'd Hate To Do Manually.
+A bash-based management tool for Ollama that provides essential utilities for model management, optimization, and maintenance. From context window variant generation to model naming convention enforcement, ollama-mama streamlines some TTIH2DM - Tedious Tasks I'd Hate To Do Manually.
 
 ## ✨ Core Features
 
