@@ -1,4 +1,4 @@
-# 🦙 Ollama Mama - Some Extra Tools for Ollama Management
+# 🦙 Ollama Mama - Extra Tools for Ollama
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
