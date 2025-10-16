@@ -1,10 +1,10 @@
-# 🦙 Ollama Mama - Comprehensive Ollama Management Tool
+# 🦙 Ollama Mama - Some Extra Tools for Ollama Management
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell Script](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
 [![Ollama](https://img.shields.io/badge/Ollama-Compatible-blue.svg)](https://ollama.ai/)
 
-A comprehensive bash-based management tool for Ollama that provides essential utilities for model management, optimization, and maintenance. From context window variant generation to model naming convention enforcement, ollama-mama streamlines your Ollama workflow with powerful automation features.
+A mprehensive bash-based management tool for Ollama that provides essential utilities for model management, optimization, and maintenance. From context window variant generation to model naming convention enforcement, ollama-mama streamlines some TTIH2DM - Tedious Tasks I'd Hate To Do Manually.
 
 ## ✨ Core Features
 
@@ -210,7 +210,7 @@ $ ./ollama-mama ctx --list
 OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
 ================================================
 
-Rank | Model Name                              | Parameters | Max Context | Context Mem
+Rank | Model Name                             | Parameters | Max Context | Context Mem
 -----|----------------------------------------|------------|-------------|-------------
 1    | qwen2.5:72b                            | 72.7B      | 131,072     | ~256 MB
 2    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
@@ -230,7 +230,7 @@ OLLAMA BASE MODELS - CONTEXT WINDOW LEADERBOARD
 ================================================
 Filter: Models containing 'llama'
 
-Rank | Model Name                              | Parameters | Max Context | Context Mem
+Rank | Model Name                             | Parameters | Max Context | Context Mem
 -----|----------------------------------------|------------|-------------|-------------
 1    | llama3.1:70b                           | 70.6B      | 131,072     | ~256 MB
 2    | llama3.1:8b                            | 8.03B      | 131,072     | ~256 MB
